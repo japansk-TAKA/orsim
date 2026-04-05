@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d0d0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>OR-Sim — 手術室当日配置最適化</title>
+<style>
+:root {
+  --bg: #0d0d0f;
+  --bg2: #161618;
+  --bg3: #1e1e22;
+  --bg4: #252528;
+  --border: #2a2a30;
+  --text: #f0f0f5;
+  --text2: #9090a0;
+  --text3: #606070;
+  --accent: #5b8cf7;
+  --accent2: #3a6be0;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+  --r: 8px;
+  --r2: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; color-scheme: dark; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  padding-bottom: 60px;
+}
+
+/* --- HEADER --- */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.header h1 {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  line-height: 1.2;
+}
+.header h1 span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.header-actions { display: flex; gap: 8px; }
+
+/* --- TABS --- */
+.tabs-wrapper {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs-wrapper::-webkit-scrollbar { display: none; }
+.tabs {
+  display: flex;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 8px;
+  gap: 0;
+}
+.tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.tab:hover { color: var(--text2); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* --- MAIN CONTENT --- */
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 12px;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* --- CARDS --- */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  margin-top: 12px;
+  overflow: hidden;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+}
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.card-body { padding: 12px 16px; }
+
+/* --- BUTTONS --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--r);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  min-height: 36px;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent2); color: #fff; }
+.btn-primary:hover { background: var(--accent); }
+.btn-success { background: #15803d; color: #fff; }
+.btn-success:hover { background: var(--success); }
+.btn-warn { background: rgba(245,158,11,0.15); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); }
+.btn-ghost { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text3); }
+.btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn-sm { padding: 5px 10px; font-size: 12px; min-height: 30px; }
+.btn-lg { padding: 12px 24px; font-size: 15px; min-height: 48px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* --- FORM INPUTS --- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 500px) {
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+}
+.input-group { display: flex; flex-direction: column; gap: 4px; }
+.input-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.input-group input,
+.input-group select,
+.input-group textarea {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 12px;
+  width: 100%;
+  min-height: 42px;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+  font-family: inherit;
+}
+.input-group input:focus,
+.input-group select:focus,
+.input-group textarea:focus { border-color: var(--accent); }
+.input-group input::placeholder { color: var(--text3); font-size: 13px; font-weight: 400; }
+.input-group select { cursor: pointer; }
+.input-group select option { background: var(--bg3); }
+
+/* toggle switch */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  gap: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.toggle-label { font-size: 13px; font-weight: 500; color: var(--text); }
+.toggle-sublabel { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  background: var(--bg4);
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text3);
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+.toggle-switch.on { background: rgba(91,140,247,0.2); border-color: var(--accent); }
+.toggle-switch.on::after { background: var(--accent); transform: translateX(18px); }
+
+/* --- LIST ITEMS --- */
+.list-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.list-item-content { flex: 1; min-width: 0; }
+.list-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-item-sub {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 3px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.list-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+/* --- BADGES --- */
+.badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.badge-blue { background: rgba(91,140,247,0.15); color: #93b4fb; }
+.badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
+.badge-yellow { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
+.badge-purple { background: rgba(168,85,247,0.15); color: #c084fc; }
+.badge-cyan { background: rgba(6,182,212,0.15); color: #22d3ee; }
+.badge-gray { background: rgba(96,96,112,0.2); color: var(--text3); }
+
+/* --- BANNERS --- */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.banner.warn { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; }
+.banner.danger { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+.banner.info { background: rgba(91,140,247,0.1); border: 1px solid rgba(91,140,247,0.3); color: #93b4fb; }
+.banner.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #4ade80; }
+
+/* --- PROGRESS BAR --- */
+.progress-wrap {
+  margin-top: 12px;
+  background: var(--bg3);
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  border-radius: 6px;
+  transition: width 0.2s;
+  width: 0%;
+}
+
+/* --- SIGMA PRESETS --- */
+.sigma-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sigma-btn {
+  padding: 8px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sigma-btn:hover { border-color: var(--text3); }
+.sigma-btn.active { background: rgba(91,140,247,0.1); border-color: var(--accent); }
+.sigma-btn-label { font-size: 11px; font-weight: 700; color: var(--text2); display: block; }
+.sigma-btn-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.sigma-btn.active .sigma-btn-label { color: var(--accent); }
+
+/* --- SCORE CARDS --- */
+.score-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+@media (max-width: 600px) { .score-cards { grid-template-columns: 1fr; } }
+.score-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.score-card:hover { border-color: var(--text3); }
+.score-card.selected { border-color: var(--accent); background: rgba(91,140,247,0.08); }
+.score-rank { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+.score-num { font-size: 28px; font-weight: 700; margin: 4px 0; }
+.score-num.gold { color: #fbbf24; }
+.score-num.silver { color: #94a3b8; }
+.score-num.bronze { color: #d97706; }
+.score-label { font-size: 11px; color: var(--text2); }
+.score-detail { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* --- GANTT CHART --- */
+.gantt-wrap {
+  margin-top: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+canvas { display: block; }
+
+/* --- TABLE --- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 12px;
+}
+.data-table th {
+  text-align: left;
+  padding: 8px 12px;
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--bg3); }
+
+/* --- EMPTY STATE --- */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text3);
+}
+.empty-state p { font-size: 14px; margin-top: 8px; }
+
+/* --- SECTION DIVIDER --- */
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 16px 0 8px;
+}
+
+/* --- FOOTER --- */
+.footer {
+  margin-top: 24px;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.5;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* --- MODAL --- */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+@media (min-width: 600px) {
+  .modal-backdrop { align-items: center; padding: 20px; }
+}
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2) var(--r2) 0 0;
+  width: 100%;
+  max-width: 540px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+@media (min-width: 600px) {
+  .modal { border-radius: var(--r2); }
+}
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+
+/* chip-select */
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip {
+  padding: 4px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.chip:hover { border-color: var(--text3); }
+.chip.active { background: rgba(91,140,247,0.15); border-color: var(--accent); color: #93b4fb; }
+
+/* report stat card */
+.stat-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 12px; }
+@media (min-width: 600px) { .stat-grid { grid-template-columns: repeat(4,1fr); } }
+.stat-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px;
+}
+.stat-val { font-size: 22px; font-weight: 700; color: var(--text); }
+.stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
+
+/* accordion */
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.accordion-arrow { font-size: 10px; color: var(--text3); transition: transform 0.15s; }
+.accordion-header.open .accordion-arrow { transform: rotate(90deg); }
+
+/* loading spinner */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* custom sigma input */
+.custom-sigma-wrap { margin-top: 8px; display: none; }
+.custom-sigma-wrap.visible { display: block; }
+
+/* or-color dots */
+.or-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+/* diff report */
+.diff-pos { color: var(--success); }
+.diff-neg { color: var(--danger); }
+.diff-neut { color: var(--text2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <h1>OR-Sim <span>手術室当日配置最適化シミュレーター</span></h1>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" id="importBtn" title="JSONインポート">読込</button>
+      <button class="btn btn-ghost btn-sm" id="exportBtn" title="JSONエクスポート">保存</button>
+      <button class="btn btn-danger btn-sm" id="clearBtn">クリア</button>
+    </div>
+  </div>
+</div>
+
+<div class="tabs-wrapper">
+  <div class="tabs">
+    <div class="tab active" data-tab="surgeries">手術リスト</div>
+    <div class="tab" data-tab="staff">スタッフ</div>
+    <div class="tab" data-tab="rooms">OR設定</div>
+    <div class="tab" data-tab="simulation">シミュレーション</div>
+    <div class="tab" data-tab="report">レポート</div>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ===== TAB: 手術リスト ===== -->
+<div class="tab-panel active" id="tab-surgeries">
+  <div style="margin-top:12px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
+    <div style="font-size:13px; color:var(--text2);">登録済み: <span id="surgery-count">0</span> 件</div>
+    <button class="btn btn-primary" id="addSurgeryBtn">+ 手術追加</button>
+  </div>
+  <div id="surgery-list" style="margin-top:10px;"></div>
+  <div id="surgery-empty" class="empty-state">
+    <div style="font-size:32px;">🏥</div>
+    <p>手術が登録されていません</p>
+    <p style="font-size:12px; margin-top:4px;">「手術追加」から当日の手術を登録してください</p>
+  </div>
+</div>
+
+<!-- ===== TAB: スタッフ ===== -->
+<div class="tab-panel" id="tab-staff">
+  <div style="margin-top:12px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
+    <div style="font-size:13px; color:var(--text2);">登録済み: <span id="staff-count">0</span> 名</div>
+    <button class="btn btn-primary" id="addStaffBtn">+ スタッフ追加</button>
+  </div>
+  <div id="staff-list" style="margin-top:10px;"></div>
+  <div id="staff-empty" class="empty-state">
+    <div style="font-size:32px;">👤</div>
+    <p>スタッフが登録されていません</p>
+    <p style="font-size:12px; margin-top:4px;">麻酔科医・看護師等を登録してください</p>
+  </div>
+</div>
+
+<!-- ===== TAB: OR設定 ===== -->
+<div class="tab-panel" id="tab-rooms">
+  <div style="margin-top:12px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
+    <div style="font-size:13px; color:var(--text2);">登録済み: <span id="room-count">0</span> 室</div>
+    <button class="btn btn-primary" id="addRoomBtn">+ OR室追加</button>
+  </div>
+  <div id="room-list" style="margin-top:10px;"></div>
+  <div id="room-empty" class="empty-state">
+    <div style="font-size:32px;">🏨</div>
+    <p>OR室が登録されていません</p>
+    <p style="font-size:12px; margin-top:4px;">手術室を登録してください</p>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header"><span class="card-title">シミュレーション設定</span></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="input-group">
+          <label>緊急発生率 λ (件/日)</label>
+          <input type="number" id="lambdaInput" value="0.3" min="0" max="5" step="0.1">
+        </div>
+        <div class="input-group">
+          <label>重み: 定時完了率</label>
+          <input type="number" id="weightOntimeInput" value="0.5" min="0" max="1" step="0.05">
+        </div>
+        <div class="input-group">
+          <label>重み: 緊急対応率</label>
+          <input type="number" id="weightEmergInput" value="0.5" min="0" max="1" step="0.05">
+        </div>
+        <div class="input-group">
+          <label>デフォルトターンオーバー (分)</label>
+          <input type="number" id="turnoverInput" value="15" min="0" max="60" step="5">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: シミュレーション ===== -->
+<div class="tab-panel" id="tab-simulation">
+  <div class="card" style="margin-top:12px;">
+    <div class="card-header"><span class="card-title">Monte Carlo シミュレーション</span></div>
+    <div class="card-body">
+      <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+        30配置パターン × 1,000試行 = 30,000回のシミュレーション。
+        定時完了率と緊急対応維持率のスコアで上位3配置を提示します。
+      </div>
+      <div id="sim-prereq" class="banner warn" style="margin-top:10px; display:none;">
+        <span>シミュレーション実行には手術・スタッフ・OR室がそれぞれ1件以上必要です。</span>
+      </div>
+      <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-success btn-lg" id="runSimBtn">シミュレーション実行</button>
+        <div id="sim-spinner" style="display:none; align-items:center; gap:8px; color:var(--text2); font-size:13px;">
+          <div class="spinner"></div>
+          <span id="sim-progress-label">計算中...</span>
+        </div>
+      </div>
+      <div class="progress-wrap" id="sim-progress-wrap" style="display:none;">
+        <div class="progress-bar" id="sim-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結果 -->
+  <div id="sim-results" style="display:none;">
+    <div class="section-title" style="margin-top:20px;">上位 3 配置</div>
+    <div class="score-cards" id="score-cards"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="justify-content:space-between;">
+        <span class="card-title">ガントチャート</span>
+        <div id="gantt-placement-selector" style="display:flex; gap:4px;"></div>
+      </div>
+      <div class="card-body" style="padding:8px;">
+        <div class="gantt-wrap">
+          <canvas id="ganttCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 緊急ケース追加 -->
+  <div id="emergency-section" style="display:none;">
+    <div class="card" style="margin-top:16px;">
+      <div class="accordion-header" id="emergAccordionHdr">
+        <span class="card-title">緊急ケース追加（差分再シミュレーション）</span>
+        <span class="accordion-arrow">▶</span>
+      </div>
+      <div id="emergAccordionBody" style="display:none; padding:12px 16px;">
+        <div class="form-grid">
+          <div class="input-group">
+            <label>術式名</label>
+            <input type="text" id="emergNameInput" placeholder="例: 緊急開腹">
+          </div>
+          <div class="input-group">
+            <label>予定時間 (分)</label>
+            <input type="number" id="emergDurInput" value="90" min="5" max="600">
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="input-group">
+            <label>σプリセット</label>
+            <select id="emergSigmaSelect">
+              <option value="0.15">短時間・予測可能 (σ=0.15)</option>
+              <option value="0.25" selected>中程度 (σ=0.25)</option>
+              <option value="0.35">大手術 (σ=0.35)</option>
+              <option value="0.45">複雑・長時間 (σ=0.45)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-warn" style="margin-top:12px;" id="runEmergBtn">緊急挿入で再シミュレーション</button>
+        <div id="emerg-result" style="margin-top:12px; display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: レポート ===== -->
+<div class="tab-panel" id="tab-report">
+  <div style="margin-top:12px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
+    <div style="font-size:13px; color:var(--text2);">累積実績データ</div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-ghost btn-sm" id="exportCsvBtn">CSVエクスポート</button>
+      <button class="btn btn-ghost btn-sm" id="exportHistBtn">JSONエクスポート</button>
+    </div>
+  </div>
+
+  <div id="report-empty" class="empty-state" style="margin-top:20px;">
+    <div style="font-size:32px;">📊</div>
+    <p>実績データがありません</p>
+    <p style="font-size:12px; margin-top:4px;">シミュレーション実行後、実績を記録すると月次レポートを生成できます</p>
+  </div>
+
+  <div id="report-content" style="display:none;">
+    <div class="stat-grid" id="report-stats"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><span class="card-title">診療科別統計</span></div>
+      <div class="card-body" style="padding:0;">
+        <table class="data-table" id="dept-table">
+          <thead><tr><th>診療科</th><th>件数</th><th>平均超過率</th><th>実績σ補正</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-header"><span class="card-title">実績σ補正（Expansion #5）</span></div>
+      <div class="card-body">
+        <div class="toggle-row" id="useSigmaCorrection">
+          <div>
+            <div class="toggle-label">実績ベース補正を使う</div>
+            <div class="toggle-sublabel">手動設定値 vs 蓄積実績から算出したσを比較して使用</div>
+          </div>
+          <div class="toggle-switch" id="sigmaCorrToggle"></div>
+        </div>
+        <div id="sigma-corr-table" style="margin-top:10px; display:none;"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" id="recordTodayBtn">本日の実績を記録</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  このシミュレーションは意思決定支援ツールです。最終判断は常に医師が行ってください。<br>
+  OR-Sim v1.0.0 — Offline First, No external dependencies
+</div>
+
+</div><!-- /content -->
+
+<!-- ===== MODALS ===== -->
+
+<!-- Surgery Modal -->
+<div class="modal-backdrop" id="surgeryModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" id="surgeryModalTitle">手術を追加</div>
+    <div class="form-grid">
+      <div class="input-group" style="grid-column:1/-1;">
+        <label>術式名 *</label>
+        <input type="text" id="s-name" placeholder="例: 腹腔鏡下胆嚢摘出術">
+      </div>
+      <div class="input-group">
+        <label>予定時間 (分) *</label>
+        <input type="number" id="s-dur" value="90" min="5" max="600">
+      </div>
+      <div class="input-group">
+        <label>担当科</label>
+        <input type="text" id="s-dept" placeholder="例: 外科">
+      </div>
+      <div class="input-group">
+        <label>OR割り (任意)</label>
+        <input type="text" id="s-room" placeholder="例: OR1">
+      </div>
+      <div class="input-group">
+        <label>執刀医名 (任意)</label>
+        <input type="text" id="s-surgeon" placeholder="例: 山田先生">
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <div class="input-group">
+        <label>σ プリセット</label>
+      </div>
+      <div class="sigma-grid" id="s-sigma-grid">
+        <button class="sigma-btn" data-sigma="0.15">
+          <span class="sigma-btn-label">短時間・予測可能 σ=0.15</span>
+          <span class="sigma-btn-sub">腹腔鏡・内視鏡・整形スコープ等</span>
+        </button>
+        <button class="sigma-btn active" data-sigma="0.25">
+          <span class="sigma-btn-label">中程度 σ=0.25</span>
+          <span class="sigma-btn-sub">開腹胆嚢・鼠径ヘルニア・甲状腺等</span>
+        </button>
+        <button class="sigma-btn" data-sigma="0.35">
+          <span class="sigma-btn-label">大手術 σ=0.35</span>
+          <span class="sigma-btn-sub">開腹大腸・胃切除・肝切除等</span>
+        </button>
+        <button class="sigma-btn" data-sigma="0.45">
+          <span class="sigma-btn-label">複雑・長時間 σ=0.45</span>
+          <span class="sigma-btn-sub">心臓・脳外・皮弁再建等</span>
+        </button>
+        <button class="sigma-btn" data-sigma="custom">
+          <span class="sigma-btn-label">カスタム</span>
+          <span class="sigma-btn-sub">手動入力 0〜100%</span>
+        </button>
+      </div>
+      <div class="custom-sigma-wrap" id="custom-sigma-wrap">
+        <div class="input-group">
+          <label>カスタムσ (%)</label>
+          <input type="number" id="s-sigma-custom" value="30" min="1" max="100">
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+      <div class="toggle-row" id="s-teaching-row">
+        <div>
+          <div class="toggle-label">指導フラグ</div>
+          <div class="toggle-sublabel">ON時: σ × 1.5</div>
+        </div>
+        <div class="toggle-switch" id="s-teaching-toggle"></div>
+      </div>
+      <div class="toggle-row" id="s-longcase-row">
+        <div>
+          <div class="toggle-label">Long-caseフラグ</div>
+          <div class="toggle-sublabel">定時完了率の分母から除外</div>
+        </div>
+        <div class="toggle-switch" id="s-longcase-toggle"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="surgeryModalCancel">キャンセル</button>
+      <button class="btn btn-primary" id="surgeryModalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Staff Modal -->
+<div class="modal-backdrop" id="staffModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" id="staffModalTitle">スタッフを追加</div>
+    <div class="form-grid">
+      <div class="input-group" style="grid-column:1/-1;">
+        <label>名前 *</label>
+        <input type="text" id="p-name" placeholder="例: 田中麻酔科医">
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <div class="section-title">資格タグ</div>
+      <div class="chip-group" id="p-quals-chips">
+        <div class="chip" data-qual="general">全身麻酔</div>
+        <div class="chip" data-qual="regional">区域麻酔</div>
+        <div class="chip" data-qual="cardiac">心臓麻酔</div>
+        <div class="chip" data-qual="neuro">脳神経麻酔</div>
+        <div class="chip" data-qual="pediatric">小児麻酔</div>
+        <div class="chip" data-qual="obstetric">産科麻酔</div>
+        <div class="chip" data-qual="emergency">緊急対応</div>
+        <div class="chip" data-qual="supervise">指導医</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <div class="input-group">
+        <label>対応可能術式 (カンマ区切り)</label>
+        <input type="text" id="p-specialties" placeholder="例: 心臓, 脳外, 小児">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="staffModalCancel">キャンセル</button>
+      <button class="btn btn-primary" id="staffModalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Room Modal -->
+<div class="modal-backdrop" id="roomModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" id="roomModalTitle">OR室を追加</div>
+    <div class="form-grid">
+      <div class="input-group" style="grid-column:1/-1;">
+        <label>OR室名 *</label>
+        <input type="text" id="r-name" placeholder="例: OR1">
+      </div>
+      <div class="input-group">
+        <label>コア開始 (HH:MM)</label>
+        <input type="text" id="r-start" value="08:30">
+      </div>
+      <div class="input-group">
+        <label>コア終了 (HH:MM)</label>
+        <input type="text" id="r-end" value="17:30">
+      </div>
+      <div class="input-group">
+        <label>ターンオーバー (分)</label>
+        <input type="number" id="r-turnover" value="15" min="0" max="60">
+      </div>
+    </div>
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+      <div class="toggle-row" id="r-emergency-row">
+        <div>
+          <div class="toggle-label">緊急対応可</div>
+          <div class="toggle-sublabel">この部屋は緊急ケースを受け入れる</div>
+        </div>
+        <div class="toggle-switch" id="r-emergency-toggle"></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <div class="section-title">機器フラグ</div>
+      <div class="chip-group" id="r-equip-chips">
+        <div class="chip" data-equip="cardiac_bypass">心肺バイパス</div>
+        <div class="chip" data-equip="robotics">ロボット手術</div>
+        <div class="chip" data-equip="fluoroscopy">透視装置</div>
+        <div class="chip" data-equip="neuro_monitoring">術中神経モニタ</div>
+        <div class="chip" data-equip="laparoscopy">腹腔鏡装置</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="roomModalCancel">キャンセル</button>
+      <button class="btn btn-primary" id="roomModalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Record Today Modal -->
+<div class="modal-backdrop" id="recordModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">本日の実績を記録</div>
+    <div id="record-modal-body" style="font-size:13px; color:var(--text2);">
+      各手術の実績時間を入力してください（分）
+    </div>
+    <div id="record-surgery-list" style="margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="recordModalCancel">キャンセル</button>
+      <button class="btn btn-primary" id="recordModalSave">記録する</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="importFileInput" accept=".json" style="display:none;">
+
+<script>
+// ============================================================
+//  OR-Sim — 手術室当日配置最適化シミュレーター
+//  Single HTML, Offline-first, No external dependencies
+// ============================================================
+
+'use strict';
+
+// ── CONSTANTS ────────────────────────────────────────────────
+const LS_KEY = 'orsim_v1';
+const HIST_KEY = 'orsim_history_v1';
+const OR_COLORS = [
+  '#5b8cf7','#22c55e','#f59e0b','#a855f7',
+  '#06b6d4','#ef4444','#ec4899','#14b8a6'
+];
+
+// ── STATE ────────────────────────────────────────────────────
+let state = {
+  surgeries: [],
+  staff: [],
+  rooms: [],
+  config: {
+    lambda: 0.3,
+    on_time_weight: 0.5,
+    emergency_weight: 0.5,
+    default_turnover: 15,
+    strategy: 'greedy',
+    use_sigma_correction: false
+  }
+};
+
+let simResults = null;
+let selectedPlacementIdx = 0;
+let history = [];
+
+// ── SEEDED RANDOM (LCG) ──────────────────────────────────────
+function seededRng(seed) {
+  let s = (seed >>> 0) + 1;
+  return function() {
+    s = Math.imul(1664525, s) + 1013904223 >>> 0;
+    return s / 4294967296;
+  };
+}
+
+function seededShuffle(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── POISSON SAMPLE ───────────────────────────────────────────
+function poissonSample(lambda, rng) {
+  if (lambda <= 0) return 0;
+  let L = Math.exp(-lambda);
+  let p = 1, k = 0;
+  do { k++; p *= rng(); } while (p > L);
+  return k - 1;
+}
+
+// ── LOG-NORMAL SAMPLE ────────────────────────────────────────
+function logNormalSample(mu, sigma, rng) {
+  // Box-Muller
+  const u1 = Math.max(1e-10, rng());
+  const u2 = rng();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return Math.exp(Math.log(mu) + sigma * z);
+}
+
+// ── TIME HELPERS ─────────────────────────────────────────────
+function parseHHMM(str) {
+  const parts = (str || '').split(':');
+  if (parts.length < 2) return 8 * 60 + 30;
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
+// ── SIGMA: apply corrections if enabled ─────────────────────
+function getEffectiveSigma(surgery) {
+  if (state.config.use_sigma_correction && surgery.historical_sigma !== null && surgery.historical_sigma !== undefined) {
+    return surgery.historical_sigma;
+  }
+  let sigma = surgery.sigma;
+  if (surgery.teaching) sigma *= 1.5;
+  return sigma;
+}
+
+// ── STRATEGIES ──────────────────────────────────────────────
+const strategies = {
+  greedy: greedyAssign
+};
+
+function greedyAssign(surgeries, staff, rooms) {
+  // Sort by duration descending
+  const sorted = surgeries.slice().sort((a, b) => b.duration - a.duration);
+  const assignment = [];
+  // Room load tracker (minutes used)
+  const roomLoad = {};
+  rooms.forEach(r => { roomLoad[r.id] = 0; });
+
+  sorted.forEach((surg, idx) => {
+    // Find preferred room
+    let targetRoom = null;
+    if (surg.preferred_room) {
+      targetRoom = rooms.find(r => r.name === surg.preferred_room || r.id === surg.preferred_room);
+    }
+    if (!targetRoom) {
+      // Pick room with least load
+      targetRoom = rooms.reduce((best, r) => {
+        return (roomLoad[r.id] || 0) < (roomLoad[best.id] || 0) ? r : best;
+      }, rooms[0]);
+    }
+    // Pick staff: first available
+    const assignedStaff = staff[idx % Math.max(1, staff.length)];
+    const turnover = (targetRoom && targetRoom.turnover != null) ? targetRoom.turnover : state.config.default_turnover;
+    const coreStart = targetRoom ? parseHHMM(targetRoom.core_start) : 510;
+
+    roomLoad[targetRoom.id] = (roomLoad[targetRoom.id] || 0) + surg.duration + turnover;
+
+    assignment.push({
+      surgery_id: surg.id,
+      staff_id: assignedStaff ? assignedStaff.id : null,
+      room_id: targetRoom.id,
+      start_min: coreStart + roomLoad[targetRoom.id] - surg.duration - turnover,
+    });
+  });
+  return assignment;
+}
+
+// ── PLACEMENT GENERATION ─────────────────────────────────────
+function generatePlacements(surgeries, staff, rooms, count) {
+  const placements = [];
+  const rng0 = seededRng(0);
+
+  for (let seed = 0; seed < count; seed++) {
+    let workSurgeries = surgeries;
+    let workStaff = staff;
+
+    if (seed === 0) {
+      // Greedy: duration desc sort
+      workSurgeries = surgeries.slice().sort((a, b) => b.duration - a.duration);
+    } else if (seed < 10) {
+      // Seeds 1-9: random staff shuffle
+      const rng = seededRng(seed);
+      workSurgeries = surgeries.slice().sort((a, b) => b.duration - a.duration);
+      workStaff = seededShuffle(staff, rng);
+    } else if (seed < 20) {
+      // Seeds 10-19: random case-order shuffle
+      const rng = seededRng(seed);
+      workSurgeries = seededShuffle(surgeries, rng);
+    } else {
+      // Seeds 20-29: partial random swaps
+      const rng = seededRng(seed);
+      workSurgeries = surgeries.slice().sort((a, b) => b.duration - a.duration);
+      const base = buildBaseAssignment(workSurgeries, workStaff, rooms);
+      const swapped = applyRandomSwaps(base, rng, 2);
+      placements.push({ seed, assignment: swapped });
+      continue;
+    }
+
+    const assignment = buildBaseAssignment(workSurgeries, workStaff, rooms);
+    placements.push({ seed, assignment });
+  }
+  return placements;
+}
+
+function buildBaseAssignment(sortedSurgeries, staffList, rooms) {
+  const roomLoad = {};
+  rooms.forEach(r => { roomLoad[r.id] = 0; });
+  const assignment = [];
+
+  sortedSurgeries.forEach((surg, idx) => {
+    let targetRoom = null;
+    if (surg.preferred_room) {
+      targetRoom = rooms.find(r => r.name === surg.preferred_room || r.id === surg.preferred_room);
+    }
+    if (!targetRoom) {
+      targetRoom = rooms.reduce((best, r) =>
+        (roomLoad[r.id] || 0) < (roomLoad[best.id] || 0) ? r : best, rooms[0]);
+    }
+    const assignedStaff = staffList[idx % Math.max(1, staffList.length)];
+    const turnover = (targetRoom && targetRoom.turnover != null) ? targetRoom.turnover : state.config.default_turnover;
+    const coreStart = targetRoom ? parseHHMM(targetRoom.core_start) : 510;
+    const startMin = coreStart + (roomLoad[targetRoom.id] || 0);
+    roomLoad[targetRoom.id] = (roomLoad[targetRoom.id] || 0) + surg.duration + turnover;
+
+    assignment.push({
+      surgery_id: surg.id,
+      staff_id: assignedStaff ? assignedStaff.id : null,
+      room_id: targetRoom.id,
+      start_min: startMin
+    });
+  });
+  return assignment;
+}
+
+function applyRandomSwaps(assignment, rng, nSwaps) {
+  const a = assignment.map(x => ({ ...x }));
+  for (let i = 0; i < nSwaps && a.length >= 2; i++) {
+    const idx1 = Math.floor(rng() * a.length);
+    let idx2 = Math.floor(rng() * a.length);
+    while (idx2 === idx1) idx2 = Math.floor(rng() * a.length);
+    [a[idx1].room_id, a[idx2].room_id] = [a[idx2].room_id, a[idx1].room_id];
+    [a[idx1].staff_id, a[idx2].staff_id] = [a[idx2].staff_id, a[idx1].staff_id];
+  }
+  return a;
+}
+
+// ── ZERO-DIVISION GUARD ──────────────────────────────────────
+function calcOnTimeRate(results) {
+  const eligible = results.filter(r => !r.long_case);
+  if (eligible.length === 0) return 1.0; // all-longcase day
+  const ot = eligible.filter(r => r.overtime).length;
+  return 1 - ot / eligible.length;
+}
+
+// ── MONTE CARLO ──────────────────────────────────────────────
+function monteCarlo(placement, config, trials) {
+  const rng = seededRng(placement.seed * 9973 + 1);
+  let onTimeSum = 0;
+  let emergCoveredSum = 0;
+
+  for (let t = 0; t < trials; t++) {
+    const trialResults = [];
+    // Simulate each surgery
+    placement.assignment.forEach(a => {
+      const surg = state.surgeries.find(s => s.id === a.surgery_id);
+      if (!surg) return;
+      const sigma = getEffectiveSigma(surg);
+      const actualDur = logNormalSample(surg.duration, sigma, rng);
+      const room = state.rooms.find(r => r.id === a.room_id);
+      const coreEnd = room ? parseHHMM(room.core_end) : 1050;
+      const turnover = room ? (room.turnover || state.config.default_turnover) : state.config.default_turnover;
+      const finish = a.start_min + actualDur + turnover;
+      trialResults.push({
+        long_case: surg.long_case,
+        overtime: finish > coreEnd
+      });
+    });
+
+    // Emergency case count via Poisson
+    const emergCount = poissonSample(config.lambda, rng);
+    // Check emergency coverage: need a room with emergency=true that has slack
+    const emergRooms = state.rooms.filter(r => r.emergency);
+    const emergCovered = emergCount === 0 || emergRooms.length > 0;
+
+    onTimeSum += calcOnTimeRate(trialResults);
+    emergCoveredSum += emergCovered ? 1 : 0;
+  }
+
+  return {
+    seed: placement.seed,
+    assignment: placement.assignment,
+    on_time_rate: onTimeSum / trials,
+    emerg_rate: emergCoveredSum / trials
+  };
+}
+
+// ── SCORE AND RANK ───────────────────────────────────────────
+function scoreAndRank(results, scoring) {
+  const w1 = scoring.on_time_weight;
+  const w2 = scoring.emergency_weight;
+  const scored = results.map(r => ({
+    ...r,
+    score: w1 * r.on_time_rate + w2 * r.emerg_rate
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+// ── SIMULATE (pure function) ─────────────────────────────────
+function simulate({ surgeries, staff, rooms, config }) {
+  const placements = generatePlacements(surgeries, staff, rooms, 30);
+  const results = placements.map(p => monteCarlo(p, config, 1000));
+  return scoreAndRank(results, config.scoring || { on_time_weight: config.on_time_weight, emergency_weight: config.emergency_weight });
+}
+
+// ── WEB WORKER (inline via Blob) ─────────────────────────────
+function runSimulationAsync(onProgress, onComplete) {
+  // Inline worker code as string
+  const workerCode = `
+    'use strict';
+    ${seededRng.toString()}
+    ${seededShuffle.toString()}
+    ${poissonSample.toString()}
+    ${logNormalSample.toString()}
+    ${parseHHMM.toString()}
+    ${calcOnTimeRate.toString()}
+    ${buildBaseAssignment.toString()}
+    ${applyRandomSwaps.toString()}
+    ${monteCarlo.toString()}
+    ${generatePlacements.toString()}
+    ${scoreAndRank.toString()}
+    ${getEffectiveSigma.toString()}
+
+    self.onmessage = function(e) {
+      const { surgeries, staff, rooms, config, trials } = e.data;
+      // Inject state-like object for getEffectiveSigma
+      self.state = { surgeries, staff, rooms, config };
+
+      const placements = generatePlacements(surgeries, staff, rooms, 30);
+      const results = [];
+      for (let i = 0; i < placements.length; i++) {
+        results.push(monteCarlo(placements[i], config, trials));
+        self.postMessage({ type: 'progress', value: Math.round((i+1)/placements.length*100) });
+      }
+      const ranked = scoreAndRank(results, { on_time_weight: config.on_time_weight, emergency_weight: config.emergency_weight });
+      self.postMessage({ type: 'done', results: ranked });
+    };
+  `;
+
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+
+  worker.onmessage = function(e) {
+    if (e.data.type === 'progress') {
+      onProgress(e.data.value);
+    } else if (e.data.type === 'done') {
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      onComplete(e.data.results);
+    }
+  };
+
+  worker.onerror = function(err) {
+    console.warn('Worker error, falling back to main thread:', err);
+    worker.terminate();
+    URL.revokeObjectURL(url);
+    // Fallback: run on main thread
+    try {
+      const results = simulate({
+        surgeries: state.surgeries,
+        staff: state.staff,
+        rooms: state.rooms,
+        config: state.config
+      });
+      onComplete(results);
+    } catch(e2) {
+      onComplete([]);
+    }
+  };
+
+  worker.postMessage({
+    surgeries: state.surgeries,
+    staff: state.staff,
+    rooms: state.rooms,
+    config: state.config,
+    trials: 1000
+  });
+
+  return worker;
+}
+
+// ── GANTT CHART (Canvas) ─────────────────────────────────────
+function drawGantt(placementResult, canvasEl) {
+  if (!placementResult) return;
+  const assignment = placementResult.assignment;
+  const rooms = state.rooms;
+  if (!rooms.length || !assignment.length) return;
+
+  // Group by room
+  const roomMap = {};
+  rooms.forEach(r => { roomMap[r.id] = []; });
+
+  assignment.forEach(a => {
+    const surg = state.surgeries.find(s => s.id === a.surgery_id);
+    const staff = state.staff.find(s => s.id === a.staff_id);
+    if (!surg || !roomMap[a.room_id]) return;
+    roomMap[a.room_id].push({ surg, staff, start_min: a.start_min });
+  });
+
+  const ROW_H = 52;
+  const LABEL_W = 70;
+  const PAD = 10;
+  const dpr = window.devicePixelRatio || 1;
+
+  // Time range
+  let minTime = Infinity, maxTime = -Infinity;
+  rooms.forEach(r => {
+    const s = parseHHMM(r.core_start || '08:30');
+    const e = parseHHMM(r.core_end || '17:30');
+    minTime = Math.min(minTime, s);
+    maxTime = Math.max(maxTime, e);
+  });
+  assignment.forEach(a => {
+    const surg = state.surgeries.find(s => s.id === a.surgery_id);
+    if (!surg) return;
+    maxTime = Math.max(maxTime, a.start_min + surg.duration + 30);
+  });
+  const timeSpan = maxTime - minTime;
+
+  const availableWidth = Math.max(canvasEl.parentElement.clientWidth - 16, 300);
+  const totalW = availableWidth;
+  const totalH = rooms.length * ROW_H + 40 + PAD * 2;
+
+  canvasEl.width = totalW * dpr;
+  canvasEl.height = totalH * dpr;
+  canvasEl.style.width = totalW + 'px';
+  canvasEl.style.height = totalH + 'px';
+
+  const ctx = canvasEl.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Background
+  ctx.fillStyle = '#161618';
+  ctx.fillRect(0, 0, totalW, totalH);
+
+  const chartW = totalW - LABEL_W - PAD;
+  const chartX = LABEL_W;
+
+  // Time axis
+  ctx.fillStyle = '#606070';
+  ctx.font = '9px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  const tickInterval = timeSpan <= 480 ? 60 : 120;
+  for (let t = minTime; t <= maxTime; t += tickInterval) {
+    const x = chartX + ((t - minTime) / timeSpan) * chartW;
+    const hh = Math.floor(t / 60).toString().padStart(2, '0');
+    const mm = (t % 60).toString().padStart(2, '0');
+    ctx.fillStyle = '#404050';
+    ctx.fillRect(x, PAD, 1, totalH - PAD - 20);
+    ctx.fillStyle = '#606070';
+    ctx.fillText(`${hh}:${mm}`, x, totalH - 6);
+  }
+
+  // Rows
+  rooms.forEach((room, ri) => {
+    const y = PAD + ri * ROW_H;
+
+    // Row background
+    ctx.fillStyle = ri % 2 === 0 ? '#1a1a1e' : '#161618';
+    ctx.fillRect(0, y, totalW, ROW_H - 2);
+
+    // Room label
+    ctx.fillStyle = '#9090a0';
+    ctx.font = 'bold 11px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(room.name, 4, y + 20);
+
+    // Core time background
+    const coreStart = parseHHMM(room.core_start || '08:30');
+    const coreEnd = parseHHMM(room.core_end || '17:30');
+    const coreX = chartX + ((coreStart - minTime) / timeSpan) * chartW;
+    const coreW = ((coreEnd - coreStart) / timeSpan) * chartW;
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillRect(coreX, y + 2, coreW, ROW_H - 6);
+
+    // Surgery blocks
+    const blocks = roomMap[room.id] || [];
+    blocks.forEach((b, bi) => {
+      const bx = chartX + ((b.start_min - minTime) / timeSpan) * chartW;
+      const bw = Math.max((b.surg.duration / timeSpan) * chartW, 4);
+      const by = y + 6;
+      const bh = ROW_H - 14;
+
+      const color = OR_COLORS[ri % OR_COLORS.length];
+      const isOvertime = (b.start_min + b.surg.duration) > coreEnd;
+
+      ctx.fillStyle = isOvertime ? 'rgba(239,68,68,0.7)' : color + 'cc';
+      roundRect(ctx, bx, by, bw, bh, 4);
+      ctx.fill();
+
+      ctx.strokeStyle = isOvertime ? '#ef4444' : color;
+      ctx.lineWidth = 1;
+      roundRect(ctx, bx, by, bw, bh, 4);
+      ctx.stroke();
+
+      // Label
+      if (bw > 30) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.save();
+        ctx.rect(bx + 2, by, bw - 4, bh);
+        ctx.clip();
+        ctx.fillText(b.surg.name.substring(0, 12), bx + 4, by + bh / 2 + 4);
+        ctx.restore();
+      }
+    });
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── STORAGE ──────────────────────────────────────────────────
+function migrate(data) {
+  if (!data.version) {
+    data.surgeries = (data.surgeries || []).map(s => ({ ...s, historical_sigma: null }));
+    data.version = 1;
+  }
+  return data;
+}
+
+function loadData(raw) {
+  const data = JSON.parse(raw);
+  return migrate(data);
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      version: 1,
+      surgeries: state.surgeries,
+      staff: state.staff,
+      rooms: state.rooms,
+      config: state.config
+    }));
+  } catch (e) { /* quota */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const data = loadData(raw);
+    if (Array.isArray(data.surgeries)) state.surgeries = data.surgeries;
+    if (Array.isArray(data.staff)) state.staff = data.staff;
+    if (Array.isArray(data.rooms)) state.rooms = data.rooms;
+    if (data.config) Object.assign(state.config, data.config);
+  } catch (e) { /* corrupted */ }
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HIST_KEY);
+    if (!raw) return;
+    history = JSON.parse(raw);
+  } catch (e) { history = []; }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(HIST_KEY, JSON.stringify(history));
+  } catch (e) {}
+}
+
+// ── ID GENERATOR ─────────────────────────────────────────────
+let _idCounter = Date.now();
+function genId() { return 'id_' + (++_idCounter).toString(36); }
+
+// ── RENDER HELPERS ───────────────────────────────────────────
+function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+function renderSurgeries() {
+  const list = document.getElementById('surgery-list');
+  const empty = document.getElementById('surgery-empty');
+  const count = document.getElementById('surgery-count');
+  count.textContent = state.surgeries.length;
+
+  if (!state.surgeries.length) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = state.surgeries.map((s, i) => {
+    const badges = [];
+    if (s.teaching) badges.push('<span class="badge badge-yellow">指導</span>');
+    if (s.long_case) badges.push('<span class="badge badge-purple">Long-case</span>');
+    if (s.surgeon) badges.push(`<span class="badge badge-gray">${escHtml(s.surgeon)}</span>`);
+    return `<div class="list-item">
+      <div class="list-item-content">
+        <div class="list-item-title">${escHtml(s.name)}</div>
+        <div class="list-item-sub">
+          <span>${s.duration}分</span>
+          ${s.dept ? `<span>${escHtml(s.dept)}</span>` : ''}
+          <span>σ=${(s.teaching ? s.sigma*1.5 : s.sigma).toFixed(2)}</span>
+          ${s.preferred_room ? `<span class="badge badge-cyan">${escHtml(s.preferred_room)}</span>` : ''}
+          ${badges.join('')}
+        </div>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditSurgery(${i})">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSurgery(${i})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStaff() {
+  const list = document.getElementById('staff-list');
+  const empty = document.getElementById('staff-empty');
+  const count = document.getElementById('staff-count');
+  count.textContent = state.staff.length;
+
+  if (!state.staff.length) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = state.staff.map((s, i) => {
+    const qualLabels = { general:'全身麻酔', regional:'区域麻酔', cardiac:'心臓麻酔',
+      neuro:'脳神経麻酔', pediatric:'小児麻酔', obstetric:'産科麻酔', emergency:'緊急対応', supervise:'指導医' };
+    const quals = (s.quals || []).map(q => `<span class="badge badge-blue">${qualLabels[q]||q}</span>`).join('');
+    return `<div class="list-item">
+      <div class="list-item-content">
+        <div class="list-item-title">${escHtml(s.name)}</div>
+        <div class="list-item-sub">${quals}${s.specialties ? `<span class="badge badge-gray">${escHtml(s.specialties)}</span>` : ''}</div>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditStaff(${i})">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStaff(${i})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRooms() {
+  const list = document.getElementById('room-list');
+  const empty = document.getElementById('room-empty');
+  const count = document.getElementById('room-count');
+  count.textContent = state.rooms.length;
+
+  if (!state.rooms.length) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  const equipLabels = { cardiac_bypass:'心肺BP', robotics:'ロボット', fluoroscopy:'透視', neuro_monitoring:'神経モニタ', laparoscopy:'腹腔鏡' };
+  list.innerHTML = state.rooms.map((r, i) => {
+    const equips = (r.equipment || []).map(e => `<span class="badge badge-cyan">${equipLabels[e]||e}</span>`).join('');
+    const emergBadge = r.emergency ? '<span class="badge badge-red">緊急対応可</span>' : '';
+    return `<div class="list-item">
+      <div class="list-item-content">
+        <div class="list-item-title">${escHtml(r.name)}</div>
+        <div class="list-item-sub">
+          <span>${r.core_start||'08:30'}〜${r.core_end||'17:30'}</span>
+          <span>TO:${r.turnover||15}分</span>
+          ${emergBadge}${equips}
+        </div>
+      </div>
+      <div class="list-item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditRoom(${i})">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRoom(${i})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSimResults() {
+  if (!simResults || !simResults.length) return;
+
+  const cards = document.getElementById('score-cards');
+  const top3 = simResults.slice(0, 3);
+  const rankClass = ['gold', 'silver', 'bronze'];
+  const rankLabel = ['1位', '2位', '3位'];
+
+  cards.innerHTML = top3.map((r, i) => {
+    const allLong = state.surgeries.length > 0 && state.surgeries.every(s => s.long_case);
+    const badge = allLong ? '<span class="badge badge-purple" style="margin-top:6px;">全件Long-case日</span>' : '';
+    return `<div class="score-card${selectedPlacementIdx === i ? ' selected' : ''}" onclick="selectPlacement(${i})">
+      <div class="score-rank">${rankLabel[i]}</div>
+      <div class="score-num ${rankClass[i]}">${(r.score * 100).toFixed(1)}</div>
+      <div class="score-label">総合スコア</div>
+      <div class="score-detail">
+        <span class="badge badge-blue">定時 ${pct(r.on_time_rate)}</span>
+        <span class="badge badge-green">緊急 ${pct(r.emerg_rate)}</span>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('');
+
+  // Gantt selector buttons
+  const sel = document.getElementById('gantt-placement-selector');
+  sel.innerHTML = ['1位','2位','3位'].map((l, i) =>
+    `<button class="btn btn-ghost btn-sm${selectedPlacementIdx===i?' btn-primary':''}" onclick="selectPlacement(${i})">${l}</button>`
+  ).join('');
+
+  drawGantt(simResults[selectedPlacementIdx], document.getElementById('ganttCanvas'));
+}
+
+function selectPlacement(idx) {
+  selectedPlacementIdx = idx;
+  renderSimResults();
+}
+
+function renderReport() {
+  const empty = document.getElementById('report-empty');
+  const content = document.getElementById('report-content');
+  if (!history.length) {
+    empty.style.display = '';
+    content.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  content.style.display = '';
+
+  // Stats
+  const total = history.length;
+  const avgOnTime = history.reduce((s, h) => s + (h.on_time_rate || 0), 0) / total;
+  const totalSurgeries = history.reduce((s, h) => s + (h.surgeries ? h.surgeries.length : 0), 0);
+  const avgEmerg = history.reduce((s, h) => s + (h.emerg_rate || 0), 0) / total;
+
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-val">${total}</div><div class="stat-lbl">記録日数</div></div>
+    <div class="stat-card"><div class="stat-val">${pct(avgOnTime)}</div><div class="stat-lbl">平均定時完了率</div></div>
+    <div class="stat-card"><div class="stat-val">${totalSurgeries}</div><div class="stat-lbl">累積手術件数</div></div>
+    <div class="stat-card"><div class="stat-val">${pct(avgEmerg)}</div><div class="stat-lbl">平均緊急対応率</div></div>
+  `;
+
+  // Dept table
+  const deptMap = {};
+  history.forEach(h => {
+    (h.surgeries || []).forEach(s => {
+      const dept = s.dept || '不明';
+      if (!deptMap[dept]) deptMap[dept] = { count: 0, overCount: 0, sigmaSum: 0, sigmaItems: 0 };
+      deptMap[dept].count++;
+      if (s.overtime) deptMap[dept].overCount++;
+      if (s.actual_duration && s.planned_duration) {
+        const ratio = s.actual_duration / s.planned_duration;
+        deptMap[dept].sigmaSum += Math.abs(Math.log(ratio));
+        deptMap[dept].sigmaItems++;
+      }
+    });
+  });
+
+  const tbody = document.querySelector('#dept-table tbody');
+  tbody.innerHTML = Object.entries(deptMap).map(([dept, d]) => {
+    const overRate = d.count > 0 ? (d.overCount / d.count) : 0;
+    const empSigma = d.sigmaItems > 0 ? (d.sigmaSum / d.sigmaItems).toFixed(2) : '—';
+    return `<tr><td>${escHtml(dept)}</td><td>${d.count}</td><td>${pct(overRate)}</td><td>${empSigma}</td></tr>`;
+  }).join('');
+
+  // Sigma correction table
+  const corrToggle = document.getElementById('sigmaCorrToggle');
+  corrToggle.className = 'toggle-switch' + (state.config.use_sigma_correction ? ' on' : '');
+
+  const corrTable = document.getElementById('sigma-corr-table');
+  if (state.config.use_sigma_correction) {
+    corrTable.style.display = '';
+    const rows = state.surgeries.map(s => {
+      const histSigma = s.historical_sigma !== null && s.historical_sigma !== undefined ? s.historical_sigma.toFixed(2) : '—';
+      return `<tr><td>${escHtml(s.name)}</td><td>${(s.teaching ? s.sigma*1.5 : s.sigma).toFixed(2)}</td><td>${histSigma}</td></tr>`;
+    });
+    corrTable.innerHTML = `<table class="data-table"><thead><tr><th>術式</th><th>手動設定σ</th><th>実績σ</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  } else {
+    corrTable.style.display = 'none';
+  }
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── MODAL STATE ──────────────────────────────────────────────
+let editingSurgeryIdx = -1;
+let editingStaffIdx = -1;
+let editingRoomIdx = -1;
+let activeSigma = 0.25;
+let sTeaching = false;
+let sLongcase = false;
+let pQuals = [];
+let rEmergency = false;
+let rEquipment = [];
+
+function openSurgeryModal(idx) {
+  editingSurgeryIdx = idx;
+  const isEdit = idx >= 0;
+  const s = isEdit ? state.surgeries[idx] : null;
+
+  document.getElementById('surgeryModalTitle').textContent = isEdit ? '手術を編集' : '手術を追加';
+  document.getElementById('s-name').value = isEdit ? s.name : '';
+  document.getElementById('s-dur').value = isEdit ? s.duration : 90;
+  document.getElementById('s-dept').value = isEdit ? (s.dept || '') : '';
+  document.getElementById('s-room').value = isEdit ? (s.preferred_room || '') : '';
+  document.getElementById('s-surgeon').value = isEdit ? (s.surgeon || '') : '';
+
+  activeSigma = isEdit ? s.sigma : 0.25;
+  sTeaching = isEdit ? !!s.teaching : false;
+  sLongcase = isEdit ? !!s.long_case : false;
+
+  document.querySelectorAll('#s-sigma-grid .sigma-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sigma === String(activeSigma) || (btn.dataset.sigma === 'custom' && ![0.15,0.25,0.35,0.45].includes(activeSigma)));
+  });
+  const isCustom = ![0.15,0.25,0.35,0.45].includes(activeSigma);
+  document.getElementById('custom-sigma-wrap').classList.toggle('visible', isCustom);
+  if (isCustom) document.getElementById('s-sigma-custom').value = Math.round(activeSigma * 100);
+
+  document.getElementById('s-teaching-toggle').className = 'toggle-switch' + (sTeaching ? ' on' : '');
+  document.getElementById('s-longcase-toggle').className = 'toggle-switch' + (sLongcase ? ' on' : '');
+
+  document.getElementById('surgeryModal').style.display = 'flex';
+}
+
+function openEditSurgery(idx) { openSurgeryModal(idx); }
+function deleteSurgery(idx) {
+  if (!confirm('この手術を削除しますか？')) return;
+  state.surgeries.splice(idx, 1);
+  saveState(); renderSurgeries();
+}
+
+function openStaffModal(idx) {
+  editingStaffIdx = idx;
+  const isEdit = idx >= 0;
+  const s = isEdit ? state.staff[idx] : null;
+
+  document.getElementById('staffModalTitle').textContent = isEdit ? 'スタッフを編集' : 'スタッフを追加';
+  document.getElementById('p-name').value = isEdit ? s.name : '';
+  document.getElementById('p-specialties').value = isEdit ? (s.specialties || '') : '';
+
+  pQuals = isEdit ? [...(s.quals || [])] : [];
+  document.querySelectorAll('#p-quals-chips .chip').forEach(c => {
+    c.classList.toggle('active', pQuals.includes(c.dataset.qual));
+  });
+
+  document.getElementById('staffModal').style.display = 'flex';
+}
+
+function openEditStaff(idx) { openStaffModal(idx); }
+function deleteStaff(idx) {
+  if (!confirm('このスタッフを削除しますか？')) return;
+  state.staff.splice(idx, 1);
+  saveState(); renderStaff();
+}
+
+function openRoomModal(idx) {
+  editingRoomIdx = idx;
+  const isEdit = idx >= 0;
+  const r = isEdit ? state.rooms[idx] : null;
+
+  document.getElementById('roomModalTitle').textContent = isEdit ? 'OR室を編集' : 'OR室を追加';
+  document.getElementById('r-name').value = isEdit ? r.name : '';
+  document.getElementById('r-start').value = isEdit ? (r.core_start || '08:30') : '08:30';
+  document.getElementById('r-end').value = isEdit ? (r.core_end || '17:30') : '17:30';
+  document.getElementById('r-turnover').value = isEdit ? (r.turnover || 15) : 15;
+
+  rEmergency = isEdit ? !!r.emergency : false;
+  rEquipment = isEdit ? [...(r.equipment || [])] : [];
+
+  document.getElementById('r-emergency-toggle').className = 'toggle-switch' + (rEmergency ? ' on' : '');
+  document.querySelectorAll('#r-equip-chips .chip').forEach(c => {
+    c.classList.toggle('active', rEquipment.includes(c.dataset.equip));
+  });
+
+  document.getElementById('roomModal').style.display = 'flex';
+}
+
+function openEditRoom(idx) { openRoomModal(idx); }
+function deleteRoom(idx) {
+  if (!confirm('このOR室を削除しますか？')) return;
+  state.rooms.splice(idx, 1);
+  saveState(); renderRooms();
+}
+
+// ── EXPORT / IMPORT ──────────────────────────────────────────
+function exportJSON() {
+  const data = {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    surgeries: state.surgeries,
+    staff: state.staff,
+    rooms: state.rooms,
+    config: state.config
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orsim-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = loadData(e.target.result);
+      if (Array.isArray(data.surgeries)) state.surgeries = data.surgeries;
+      if (Array.isArray(data.staff)) state.staff = data.staff;
+      if (Array.isArray(data.rooms)) state.rooms = data.rooms;
+      if (data.config) Object.assign(state.config, data.config);
+      saveState();
+      renderAll();
+      alert('インポートしました。');
+    } catch (err) {
+      alert('JSONの読み込みに失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportCSV() {
+  if (!history.length) { alert('実績データがありません。'); return; }
+  const rows = [['日付','術式','診療科','予定時間','実績時間','超過']];
+  history.forEach(h => {
+    (h.surgeries || []).forEach(s => {
+      rows.push([h.date, s.name, s.dept||'', s.planned_duration||'', s.actual_duration||'', s.overtime ? '1' : '0']);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orsim-history-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportHistJSON() {
+  const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orsim-history-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── CLEAR DATA ────────────────────────────────────────────────
+function clearData() {
+  if (!confirm('すべてのデータをクリアします。この操作は取り消せません。よろしいですか？')) return;
+  try { localStorage.removeItem(LS_KEY); localStorage.removeItem(HIST_KEY); } catch (e) {}
+  state.surgeries = [];
+  state.staff = [];
+  state.rooms = [];
+  state.config = { lambda: 0.3, on_time_weight: 0.5, emergency_weight: 0.5, default_turnover: 15, strategy: 'greedy', use_sigma_correction: false };
+  history = [];
+  simResults = null;
+  document.getElementById('sim-results').style.display = 'none';
+  document.getElementById('emergency-section').style.display = 'none';
+  renderAll();
+}
+
+function renderAll() {
+  renderSurgeries();
+  renderStaff();
+  renderRooms();
+  // config fields
+  document.getElementById('lambdaInput').value = state.config.lambda;
+  document.getElementById('weightOntimeInput').value = state.config.on_time_weight;
+  document.getElementById('weightEmergInput').value = state.config.emergency_weight;
+  document.getElementById('turnoverInput').value = state.config.default_turnover;
+  renderReport();
+  if (simResults) renderSimResults();
+}
+
+// ── SIMULATION RUN ────────────────────────────────────────────
+let activeWorker = null;
+
+function runSimulation() {
+  if (!state.surgeries.length || !state.staff.length || !state.rooms.length) {
+    document.getElementById('sim-prereq').style.display = '';
+    return;
+  }
+  document.getElementById('sim-prereq').style.display = 'none';
+  document.getElementById('runSimBtn').disabled = true;
+  document.getElementById('sim-spinner').style.display = 'flex';
+  document.getElementById('sim-progress-wrap').style.display = '';
+  document.getElementById('sim-progress-bar').style.width = '0%';
+
+  if (activeWorker) { activeWorker.terminate(); activeWorker = null; }
+
+  activeWorker = runSimulationAsync(
+    function(pct) {
+      document.getElementById('sim-progress-bar').style.width = pct + '%';
+      document.getElementById('sim-progress-label').textContent = `計算中... ${pct}%`;
+    },
+    function(results) {
+      activeWorker = null;
+      document.getElementById('runSimBtn').disabled = false;
+      document.getElementById('sim-spinner').style.display = 'none';
+      document.getElementById('sim-progress-bar').style.width = '100%';
+      simResults = results;
+      selectedPlacementIdx = 0;
+      document.getElementById('sim-results').style.display = '';
+      document.getElementById('emergency-section').style.display = '';
+      renderSimResults();
+    }
+  );
+}
+
+// ── EMERGENCY RE-SIMULATION ───────────────────────────────────
+function runEmergencyResim() {
+  const name = document.getElementById('emergNameInput').value.trim() || '緊急ケース';
+  const dur = parseInt(document.getElementById('emergDurInput').value, 10) || 90;
+  const sigma = parseFloat(document.getElementById('emergSigmaSelect').value) || 0.25;
+
+  const emergSurg = {
+    id: genId(), name, duration: dur, sigma,
+    dept: '緊急', teaching: false, long_case: false, historical_sigma: null
+  };
+
+  const origOnTime = simResults && simResults.length ? simResults[0].on_time_rate : 0;
+  const origEmerg = simResults && simResults.length ? simResults[0].emerg_rate : 0;
+
+  // Temporarily add emergency surgery to state
+  const savedSurgeries = state.surgeries.slice();
+  state.surgeries = [...savedSurgeries, emergSurg];
+
+  const placements = generatePlacements(state.surgeries, state.staff, state.rooms, 5);
+  const results = placements.map(p => monteCarlo(p, state.config, 200));
+  const ranked = scoreAndRank(results, { on_time_weight: state.config.on_time_weight, emergency_weight: state.config.emergency_weight });
+
+  state.surgeries = savedSurgeries;
+
+  const newOnTime = ranked.length ? ranked[0].on_time_rate : 0;
+  const newEmerg = ranked.length ? ranked[0].emerg_rate : 0;
+  const diffOnTime = newOnTime - origOnTime;
+  const diffEmerg = newEmerg - origEmerg;
+
+  const diffClass = v => v >= 0 ? 'diff-pos' : 'diff-neg';
+  const sign = v => v >= 0 ? '+' : '';
+
+  document.getElementById('emerg-result').style.display = '';
+  document.getElementById('emerg-result').innerHTML = `
+    <div class="banner info">緊急ケース「${escHtml(name)}」（${dur}分）挿入後の影響:</div>
+    <div style="margin-top:8px; display:flex; gap:12px; flex-wrap:wrap;">
+      <div class="stat-card">
+        <div class="stat-val ${diffClass(diffOnTime)}">${sign(diffOnTime)}${pct(diffOnTime)}</div>
+        <div class="stat-lbl">定時完了率の変化</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val ${diffClass(diffEmerg)}">${sign(diffEmerg)}${pct(diffEmerg)}</div>
+        <div class="stat-lbl">緊急対応率の変化</div>
+      </div>
+    </div>
+  `;
+}
+
+// ── RECORD TODAY ─────────────────────────────────────────────
+function openRecordModal() {
+  if (!state.surgeries.length) { alert('手術リストが空です。'); return; }
+  const body = document.getElementById('record-surgery-list');
+  body.innerHTML = state.surgeries.map((s, i) =>
+    `<div class="input-group" style="margin-bottom:8px;">
+      <label>${escHtml(s.name)} (予定${s.duration}分)</label>
+      <input type="number" id="rec-actual-${i}" value="${s.duration}" min="1" max="999" placeholder="実績時間(分)">
+    </div>`
+  ).join('');
+  document.getElementById('recordModal').style.display = 'flex';
+}
+
+function saveRecord() {
+  const today = new Date().toISOString().slice(0, 10);
+  const surgeries = state.surgeries.map((s, i) => {
+    const actual = parseInt(document.getElementById(`rec-actual-${i}`).value, 10) || s.duration;
+    const room = state.rooms.find(r => r.id === (simResults && simResults.length ? simResults[0].assignment.find(a => a.surgery_id === s.id)?.room_id : null));
+    const coreEnd = room ? parseHHMM(room.core_end) : 1050;
+    return {
+      id: s.id, name: s.name, dept: s.dept || '',
+      planned_duration: s.duration,
+      actual_duration: actual,
+      long_case: s.long_case,
+      overtime: actual > s.duration * 1.2, // simplified
+    };
+  });
+
+  const on_time_rate = calcOnTimeRate(surgeries);
+  const emerg_rate = simResults && simResults.length ? simResults[0].emerg_rate : 0;
+
+  // Update historical sigma per surgery
+  surgeries.forEach(s => {
+    const stateSurg = state.surgeries.find(x => x.id === s.id);
+    if (stateSurg && s.actual_duration && s.planned_duration) {
+      const ratio = s.actual_duration / s.planned_duration;
+      const logRatio = Math.abs(Math.log(ratio));
+      stateSurg.historical_sigma = (stateSurg.historical_sigma !== null && stateSurg.historical_sigma !== undefined)
+        ? (stateSurg.historical_sigma * 0.7 + logRatio * 0.3) // exponential moving average
+        : logRatio;
+    }
+  });
+
+  history.unshift({ date: today, surgeries, on_time_rate, emerg_rate });
+  saveHistory();
+  saveState();
+  document.getElementById('recordModal').style.display = 'none';
+  renderReport();
+  switchTab('report');
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  if (name === 'simulation' && simResults) {
+    setTimeout(() => drawGantt(simResults[selectedPlacementIdx], document.getElementById('ganttCanvas')), 50);
+  }
+}
+
+// ── INIT EVENTS ───────────────────────────────────────────────
+function initEvents() {
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // Surgery modal
+  document.getElementById('addSurgeryBtn').addEventListener('click', () => openSurgeryModal(-1));
+  document.getElementById('surgeryModalCancel').addEventListener('click', () => {
+    document.getElementById('surgeryModal').style.display = 'none';
+  });
+  document.getElementById('surgeryModalSave').addEventListener('click', () => {
+    const name = document.getElementById('s-name').value.trim();
+    if (!name) { alert('術式名を入力してください。'); return; }
+    const dur = parseInt(document.getElementById('s-dur').value, 10);
+    if (!dur || dur < 1) { alert('有効な予定時間を入力してください。'); return; }
+
+    const sigma = activeSigma === 'custom'
+      ? (parseFloat(document.getElementById('s-sigma-custom').value) / 100) || 0.25
+      : activeSigma;
+
+    const obj = {
+      id: editingSurgeryIdx >= 0 ? state.surgeries[editingSurgeryIdx].id : genId(),
+      name,
+      duration: dur,
+      dept: document.getElementById('s-dept').value.trim(),
+      preferred_room: document.getElementById('s-room').value.trim(),
+      surgeon: document.getElementById('s-surgeon').value.trim(),
+      sigma: typeof sigma === 'number' ? sigma : 0.25,
+      teaching: sTeaching,
+      long_case: sLongcase,
+      historical_sigma: editingSurgeryIdx >= 0 ? state.surgeries[editingSurgeryIdx].historical_sigma : null
+    };
+
+    if (editingSurgeryIdx >= 0) {
+      state.surgeries[editingSurgeryIdx] = obj;
+    } else {
+      state.surgeries.push(obj);
+    }
+    saveState();
+    renderSurgeries();
+    document.getElementById('surgeryModal').style.display = 'none';
+  });
+
+  // Sigma preset buttons
+  document.querySelectorAll('#s-sigma-grid .sigma-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#s-sigma-grid .sigma-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (btn.dataset.sigma === 'custom') {
+        activeSigma = 'custom';
+        document.getElementById('custom-sigma-wrap').classList.add('visible');
+      } else {
+        activeSigma = parseFloat(btn.dataset.sigma);
+        document.getElementById('custom-sigma-wrap').classList.remove('visible');
+      }
+    });
+  });
+
+  // Teaching toggle
+  document.getElementById('s-teaching-row').addEventListener('click', () => {
+    sTeaching = !sTeaching;
+    document.getElementById('s-teaching-toggle').className = 'toggle-switch' + (sTeaching ? ' on' : '');
+  });
+
+  // Long-case toggle
+  document.getElementById('s-longcase-row').addEventListener('click', () => {
+    sLongcase = !sLongcase;
+    document.getElementById('s-longcase-toggle').className = 'toggle-switch' + (sLongcase ? ' on' : '');
+  });
+
+  // Staff modal
+  document.getElementById('addStaffBtn').addEventListener('click', () => openStaffModal(-1));
+  document.getElementById('staffModalCancel').addEventListener('click', () => {
+    document.getElementById('staffModal').style.display = 'none';
+  });
+  document.getElementById('staffModalSave').addEventListener('click', () => {
+    const name = document.getElementById('p-name').value.trim();
+    if (!name) { alert('名前を入力してください。'); return; }
+    const obj = {
+      id: editingStaffIdx >= 0 ? state.staff[editingStaffIdx].id : genId(),
+      name,
+      quals: [...pQuals],
+      specialties: document.getElementById('p-specialties').value.trim()
+    };
+    if (editingStaffIdx >= 0) { state.staff[editingStaffIdx] = obj; }
+    else { state.staff.push(obj); }
+    saveState(); renderStaff();
+    document.getElementById('staffModal').style.display = 'none';
+  });
+
+  document.querySelectorAll('#p-quals-chips .chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const q = c.dataset.qual;
+      if (pQuals.includes(q)) { pQuals = pQuals.filter(x => x !== q); }
+      else { pQuals.push(q); }
+      c.classList.toggle('active', pQuals.includes(q));
+    });
+  });
+
+  // Room modal
+  document.getElementById('addRoomBtn').addEventListener('click', () => openRoomModal(-1));
+  document.getElementById('roomModalCancel').addEventListener('click', () => {
+    document.getElementById('roomModal').style.display = 'none';
+  });
+  document.getElementById('roomModalSave').addEventListener('click', () => {
+    const name = document.getElementById('r-name').value.trim();
+    if (!name) { alert('OR室名を入力してください。'); return; }
+    const obj = {
+      id: editingRoomIdx >= 0 ? state.rooms[editingRoomIdx].id : genId(),
+      name,
+      core_start: document.getElementById('r-start').value || '08:30',
+      core_end: document.getElementById('r-end').value || '17:30',
+      turnover: parseInt(document.getElementById('r-turnover').value, 10) || 15,
+      emergency: rEmergency,
+      equipment: [...rEquipment]
+    };
+    if (editingRoomIdx >= 0) { state.rooms[editingRoomIdx] = obj; }
+    else { state.rooms.push(obj); }
+    saveState(); renderRooms();
+    document.getElementById('roomModal').style.display = 'none';
+  });
+
+  document.getElementById('r-emergency-row').addEventListener('click', () => {
+    rEmergency = !rEmergency;
+    document.getElementById('r-emergency-toggle').className = 'toggle-switch' + (rEmergency ? ' on' : '');
+  });
+
+  document.querySelectorAll('#r-equip-chips .chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const e = c.dataset.equip;
+      if (rEquipment.includes(e)) { rEquipment = rEquipment.filter(x => x !== e); }
+      else { rEquipment.push(e); }
+      c.classList.toggle('active', rEquipment.includes(e));
+    });
+  });
+
+  // Config inputs
+  document.getElementById('lambdaInput').addEventListener('change', e => {
+    state.config.lambda = parseFloat(e.target.value) || 0.3;
+    saveState();
+  });
+  document.getElementById('weightOntimeInput').addEventListener('change', e => {
+    state.config.on_time_weight = parseFloat(e.target.value) || 0.5;
+    saveState();
+  });
+  document.getElementById('weightEmergInput').addEventListener('change', e => {
+    state.config.emergency_weight = parseFloat(e.target.value) || 0.5;
+    saveState();
+  });
+  document.getElementById('turnoverInput').addEventListener('change', e => {
+    state.config.default_turnover = parseInt(e.target.value, 10) || 15;
+    saveState();
+  });
+
+  // Simulation
+  document.getElementById('runSimBtn').addEventListener('click', runSimulation);
+
+  // Emergency section accordion
+  document.getElementById('emergAccordionHdr').addEventListener('click', () => {
+    const body = document.getElementById('emergAccordionBody');
+    const hdr = document.getElementById('emergAccordionHdr');
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    hdr.classList.toggle('open', !isOpen);
+  });
+
+  document.getElementById('runEmergBtn').addEventListener('click', runEmergencyResim);
+
+  // Export / Import
+  document.getElementById('exportBtn').addEventListener('click', exportJSON);
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFileInput').click();
+  });
+  document.getElementById('importFileInput').addEventListener('change', e => {
+    if (e.target.files && e.target.files[0]) {
+      importJSON(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+
+  // Clear
+  document.getElementById('clearBtn').addEventListener('click', clearData);
+
+  // Report
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCSV);
+  document.getElementById('exportHistBtn').addEventListener('click', exportHistJSON);
+  document.getElementById('recordTodayBtn').addEventListener('click', openRecordModal);
+
+  document.getElementById('useSigmaCorrection').addEventListener('click', () => {
+    state.config.use_sigma_correction = !state.config.use_sigma_correction;
+    document.getElementById('sigmaCorrToggle').className = 'toggle-switch' + (state.config.use_sigma_correction ? ' on' : '');
+    saveState();
+    renderReport();
+  });
+
+  document.getElementById('recordModalCancel').addEventListener('click', () => {
+    document.getElementById('recordModal').style.display = 'none';
+  });
+  document.getElementById('recordModalSave').addEventListener('click', saveRecord);
+
+  // Close modals on backdrop click
+  ['surgeryModal','staffModal','roomModal','recordModal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) this.style.display = 'none';
+    });
+  });
+
+  // Resize: redraw gantt
+  window.addEventListener('resize', () => {
+    if (simResults) {
+      drawGantt(simResults[selectedPlacementIdx], document.getElementById('ganttCanvas'));
+    }
+  });
+}
+
+// ── SERVICE WORKER (PWA) — inline Blob ───────────────────────
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  const swCode = `
+    const CACHE = 'orsim-v1';
+    self.addEventListener('install', e => {
+      e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/orsim/', '/orsim/index.html'])));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e => {
+      e.waitUntil(caches.keys().then(keys =>
+        Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      ));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch', e => {
+      e.respondWith(
+        caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/orsim/index.html')))
+      );
+    });
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url).catch(() => {});
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+loadState();
+loadHistory();
+initEvents();
+renderAll();
+registerSW();
+
+</script>
+</body>
+</html>
