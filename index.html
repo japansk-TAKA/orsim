@@ -513,6 +513,33 @@ canvas { display: block; }
 .stat-val { font-size: 22px; font-weight: 700; color: var(--text); }
 .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
 
+/* --- HELP TOOLTIP --- */
+.help-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--bg4); border: 1px solid var(--border);
+  color: var(--text3); font-size: 9px; font-weight: 700;
+  cursor: pointer; margin-left: 5px; vertical-align: middle;
+  line-height: 1; flex-shrink: 0; user-select: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.help-icon:hover { border-color: var(--accent); color: var(--accent); }
+#tipPopup {
+  position: fixed; z-index: 9999;
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px;
+  font-size: 12px; color: var(--text2); max-width: 260px;
+  line-height: 1.6; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  display: none; pointer-events: none;
+}
+
+/* --- CLAUDE IMPORT BUTTON --- */
+.btn-claude {
+  background: linear-gradient(135deg, #c084fc, #818cf8);
+  color: #fff; border: none; font-weight: 600;
+}
+.btn-claude:hover { opacity: 0.9; }
+
 /* accordion */
 .accordion-header {
   display: flex;
@@ -586,7 +613,10 @@ canvas { display: block; }
 <div class="tab-panel active" id="tab-surgeries">
   <div style="margin-top:12px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
     <div style="font-size:13px; color:var(--text2);">登録済み: <span id="surgery-count">0</span> 件</div>
-    <button class="btn btn-primary" id="addSurgeryBtn">+ 手術追加</button>
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-ghost btn-sm btn-claude" id="claudeImportBtn" title="Claude.aiで手術予定表の写真からデータを自動入力">📷 AI入力</button>
+      <button class="btn btn-primary" id="addSurgeryBtn">+ 手術追加</button>
+    </div>
   </div>
   <div id="surgery-list" style="margin-top:10px;"></div>
   <div id="surgery-empty" class="empty-state">
@@ -628,19 +658,19 @@ canvas { display: block; }
     <div class="card-body">
       <div class="form-grid">
         <div class="input-group">
-          <label>緊急発生率 λ (件/日)</label>
+          <label>緊急発生率 λ (件/日)<span class="help-icon" data-tip="1日に緊急手術が発生する平均件数。Poisson過程でモデル化されます。λ=0.3は「3日に1回程度の緊急」。施設の実績に合わせて調整してください。">?</span></label>
           <input type="number" id="lambdaInput" value="0.3" min="0" max="5" step="0.1">
         </div>
         <div class="input-group">
-          <label>重み: 定時完了率</label>
+          <label>重み: 定時完了率<span class="help-icon" data-tip="スコア計算式: (定時完了率 × 重みA) + (緊急対応率 × 重みB)。2つの重みの合計を1.0にしてください。定時完了を重視するなら0.7/0.3、緊急対応を重視するなら0.3/0.7。">?</span></label>
           <input type="number" id="weightOntimeInput" value="0.5" min="0" max="1" step="0.05">
         </div>
         <div class="input-group">
-          <label>重み: 緊急対応率</label>
+          <label>重み: 緊急対応率<span class="help-icon" data-tip="緊急手術が発生した時に「すぐ対応できるスタッフが確保できた試行数 / 全試行数」。産科・救急が多い施設では高く設定することを推奨。">?</span></label>
           <input type="number" id="weightEmergInput" value="0.5" min="0" max="1" step="0.05">
         </div>
         <div class="input-group">
-          <label>デフォルトターンオーバー (分)</label>
+          <label>デフォルトターンオーバー (分)<span class="help-icon" data-tip="OR室個別設定が未入力の場合のフォールバック値。手術と手術の間の準備時間。">?</span></label>
           <input type="number" id="turnoverInput" value="15" min="0" max="60" step="5">
         </div>
       </div>
@@ -791,11 +821,11 @@ canvas { display: block; }
     <div class="modal-title" id="surgeryModalTitle">手術を追加</div>
     <div class="form-grid">
       <div class="input-group" style="grid-column:1/-1;">
-        <label>術式名 *</label>
+        <label>術式名 *<span class="help-icon" data-tip="当日行う手術の名称。シミュレーション結果のガントチャートに表示されます。">?</span></label>
         <input type="text" id="s-name" placeholder="例: 腹腔鏡下胆嚢摘出術">
       </div>
       <div class="input-group">
-        <label>予定時間 (分) *</label>
+        <label>予定時間 (分) *<span class="help-icon" data-tip="執刀開始から終了までの予定時間（分）。ターンオーバー時間は自動で加算されます。">?</span></label>
         <input type="number" id="s-dur" value="90" min="5" max="600">
       </div>
       <div class="input-group">
@@ -814,7 +844,7 @@ canvas { display: block; }
 
     <div style="margin-top:12px;">
       <div class="input-group">
-        <label>σ プリセット</label>
+        <label>σ プリセット<span class="help-icon" data-tip="σ（シグマ）は手術時間のばらつきを表す係数です。例えばσ=0.15なら「予定90分の手術は対数正規分布でほぼ76〜106分の範囲に収まる」イメージ。数値が大きいほど読めない手術です。術式の種類で選んでください。">?</span></label>
       </div>
       <div class="sigma-grid" id="s-sigma-grid">
         <button class="sigma-btn" data-sigma="0.15">
@@ -849,14 +879,14 @@ canvas { display: block; }
     <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
       <div class="toggle-row" id="s-teaching-row">
         <div>
-          <div class="toggle-label">指導フラグ</div>
+          <div class="toggle-label">指導フラグ<span class="help-icon" data-tip="研修医・専攻医が執刀する手術にON。指導が入るため時間のばらつきが増え、σが1.5倍になります。結果として定時完了リスクが高くなります。">?</span></div>
           <div class="toggle-sublabel">ON時: σ × 1.5</div>
         </div>
         <div class="toggle-switch" id="s-teaching-toggle"></div>
       </div>
       <div class="toggle-row" id="s-longcase-row">
         <div>
-          <div class="toggle-label">Long-caseフラグ</div>
+          <div class="toggle-label">Long-caseフラグ<span class="help-icon" data-tip="心臓手術など、最初から定時終了を想定しない長時間手術にON。「定時完了率」の計算から除外され、スコアに不利な影響を与えません。">?</span></div>
           <div class="toggle-sublabel">定時完了率の分母から除外</div>
         </div>
         <div class="toggle-switch" id="s-longcase-toggle"></div>
@@ -881,7 +911,7 @@ canvas { display: block; }
       </div>
     </div>
     <div style="margin-top:10px;">
-      <div class="section-title">資格タグ</div>
+      <div class="section-title">資格タグ<span class="help-icon" data-tip="このスタッフが対応できる麻酔・手術の種類。複数選択可。シミュレーション時、指導フラグのある手術は「指導医」タグを持つスタッフが同室に必要です。">?</span></div>
       <div class="chip-group" id="p-quals-chips">
         <div class="chip" data-qual="general">全身麻酔</div>
         <div class="chip" data-qual="regional">区域麻酔</div>
@@ -895,7 +925,7 @@ canvas { display: block; }
     </div>
     <div style="margin-top:10px;">
       <div class="input-group">
-        <label>対応可能術式 (カンマ区切り)</label>
+        <label>対応可能術式 (カンマ区切り)<span class="help-icon" data-tip="特殊術式の専門資格がある場合に入力。例: 心臓手術専門のスタッフは「心臓」と記入。手術側の術式名と照合され、配置の優先度に使われます。">?</span></label>
         <input type="text" id="p-specialties" placeholder="例: 心臓, 脳外, 小児">
       </div>
     </div>
@@ -916,29 +946,29 @@ canvas { display: block; }
         <input type="text" id="r-name" placeholder="例: OR1">
       </div>
       <div class="input-group">
-        <label>コア開始 (HH:MM)</label>
+        <label>コア開始 (HH:MM)<span class="help-icon" data-tip="最初の手術を開始できる時刻。通常は麻酔導入開始時刻（例: 08:30）。">?</span></label>
         <input type="text" id="r-start" value="08:30">
       </div>
       <div class="input-group">
-        <label>コア終了 (HH:MM)</label>
+        <label>コア終了 (HH:MM)<span class="help-icon" data-tip="この時刻を超えた手術は「定時超過」としてカウントされます。通常は手術終了・退室の目標時刻（例: 17:30）。">?</span></label>
         <input type="text" id="r-end" value="17:30">
       </div>
       <div class="input-group">
-        <label>ターンオーバー (分)</label>
+        <label>ターンオーバー (分)<span class="help-icon" data-tip="手術と手術の間の準備時間（清拭・滅菌器具セットアップ・患者入退室など）。この病院のデフォルト値を入れてください。通常10〜20分。">?</span></label>
         <input type="number" id="r-turnover" value="15" min="0" max="60">
       </div>
     </div>
     <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
       <div class="toggle-row" id="r-emergency-row">
         <div>
-          <div class="toggle-label">緊急対応可</div>
+          <div class="toggle-label">緊急対応可<span class="help-icon" data-tip="緊急手術（予定外）がこの部屋を使用できるかどうか。ONにすると、シミュレーションで緊急ケース発生時にこの部屋が候補になります。">?</span></div>
           <div class="toggle-sublabel">この部屋は緊急ケースを受け入れる</div>
         </div>
         <div class="toggle-switch" id="r-emergency-toggle"></div>
       </div>
     </div>
     <div style="margin-top:10px;">
-      <div class="section-title">機器フラグ</div>
+      <div class="section-title">機器フラグ<span class="help-icon" data-tip="この部屋が持つ特殊機器。心肺バイパスが必要な心臓手術は「心肺バイパス」フラグのある部屋にのみ配置されます。（現在はフラグ記録のみ。将来的に配置制約に使用予定）">?</span></div>
       <div class="chip-group" id="r-equip-chips">
         <div class="chip" data-equip="cardiac_bypass">心肺バイパス</div>
         <div class="chip" data-equip="robotics">ロボット手術</div>
@@ -2282,6 +2312,97 @@ function initEvents() {
     if (simResults) {
       drawGantt(simResults[selectedPlacementIdx], document.getElementById('ganttCanvas'));
     }
+  });
+
+  // ── TOOLTIP SYSTEM ───────────────────────────────────────────
+  const tipEl = document.createElement('div');
+  tipEl.id = 'tipPopup';
+  document.body.appendChild(tipEl);
+
+  function positionTip(anchor) {
+    tipEl.style.display = 'block';
+    const r = anchor.getBoundingClientRect();
+    const tw = tipEl.offsetWidth;
+    const th = tipEl.offsetHeight;
+    let left = r.right + 8;
+    if (left + tw > window.innerWidth - 8) left = r.left - tw - 8;
+    if (left < 8) left = 8;
+    let top = r.top - 4;
+    if (top + th > window.innerHeight - 8) top = window.innerHeight - th - 8;
+    if (top < 8) top = 8;
+    tipEl.style.left = left + 'px';
+    tipEl.style.top = top + 'px';
+  }
+
+  let tipAnchor = null;
+  document.addEventListener('click', e => {
+    if (e.target.classList.contains('help-icon')) {
+      e.stopPropagation();
+      if (tipAnchor === e.target) {
+        tipEl.style.display = 'none';
+        tipAnchor = null;
+      } else {
+        tipAnchor = e.target;
+        tipEl.textContent = e.target.dataset.tip;
+        positionTip(e.target);
+      }
+    } else if (!tipEl.contains(e.target)) {
+      tipEl.style.display = 'none';
+      tipAnchor = null;
+    }
+  }, true);
+
+  // ── CLAUDE.AI IMPORT ─────────────────────────────────────────
+  document.getElementById('claudeImportBtn').addEventListener('click', () => {
+    const prompt = `以下の手術予定表の画像を見て、JSON形式に変換してください。
+
+出力形式（JSONのみ。説明不要）:
+{
+  "surgeries": [
+    {
+      "name": "術式名",
+      "duration": 予定時間(分・整数),
+      "dept": "担当科",
+      "preferred_room": "OR番号(例:OR1)",
+      "surgeon": "執刀医名",
+      "sigma": 0.25,
+      "teaching": false,
+      "long_case": false
+    }
+  ]
+}
+
+σの目安: 腹腔鏡・内視鏡=0.15 / 一般開腹=0.25 / 大手術(大腸・胃・肝)=0.35 / 複雑長時間(心臓・脳外)=0.45
+teaching: 研修医執刀の場合はtrue
+long_case: 心臓・肝移植など長時間手術はtrue
+
+【添付画像の手術予定表を変換してください】`;
+
+    navigator.clipboard.writeText(prompt).then(() => {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;';
+      modal.innerHTML = `
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:460px;width:100%;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:12px;">📷 AI入力の使い方</div>
+          <ol style="font-size:13px;color:var(--text2);line-height:1.8;padding-left:18px;margin:0 0 16px;">
+            <li>プロンプトをクリップボードにコピーしました ✓</li>
+            <li>Claude.aiを開く（下のボタン）</li>
+            <li>手術予定表の<strong style="color:var(--text);">写真を添付</strong></li>
+            <li>コピーしたプロンプトを<strong style="color:var(--text);">貼り付けて送信</strong></li>
+            <li>返ってきたJSONをコピー</li>
+            <li>OR-Simの<strong style="color:var(--text);">「読込」ボタン</strong>でインポート</li>
+          </ol>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button id="tip-close" class="btn btn-ghost">閉じる</button>
+            <a href="https://claude.ai" target="_blank" class="btn btn-primary" style="text-decoration:none;">Claude.aiを開く →</a>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.querySelector('#tip-close').addEventListener('click', () => modal.remove());
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    }).catch(() => {
+      alert('クリップボードへのコピーに失敗しました。ブラウザの権限を確認してください。');
+    });
   });
 }
 
