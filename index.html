@@ -658,19 +658,19 @@ canvas { display: block; }
     <div class="card-body">
       <div class="form-grid">
         <div class="input-group">
-          <label>緊急発生率 λ (件/日)<span class="help-icon" data-tip="1日に緊急手術が発生する平均件数。Poisson過程でモデル化されます。λ=0.3は「3日に1回程度の緊急」。施設の実績に合わせて調整してください。">?</span></label>
+          <label>緊急手術の頻度 (件/日)<span class="help-icon" data-tip="1日に予定外の緊急手術が何件入るか。「週に1〜2件」なら0.2〜0.4、「ほぼ毎日1件」なら1.0。施設の実感に合わせてください。0にすると緊急なしで計算します。">?</span></label>
           <input type="number" id="lambdaInput" value="0.3" min="0" max="5" step="0.1">
         </div>
         <div class="input-group">
-          <label>重み: 定時完了率<span class="help-icon" data-tip="スコア計算式: (定時完了率 × 重みA) + (緊急対応率 × 重みB)。2つの重みの合計を1.0にしてください。定時完了を重視するなら0.7/0.3、緊急対応を重視するなら0.3/0.7。">?</span></label>
+          <label>定時終了をどれくらい重視するか<span class="help-icon" data-tip="「定時に終わること」と「緊急に対応できること」のどちらを優先するかを0〜1で入力。2つを足すと1.0になるようにしてください。定時重視なら 0.7 / 0.3、緊急重視なら 0.3 / 0.7。通常は両方0.5で問題ありません。">?</span></label>
           <input type="number" id="weightOntimeInput" value="0.5" min="0" max="1" step="0.05">
         </div>
         <div class="input-group">
-          <label>重み: 緊急対応率<span class="help-icon" data-tip="緊急手術が発生した時に「すぐ対応できるスタッフが確保できた試行数 / 全試行数」。産科・救急が多い施設では高く設定することを推奨。">?</span></label>
+          <label>緊急対応をどれくらい重視するか<span class="help-icon" data-tip="産科・救急搬送が多い施設は高く（0.6〜0.7）、外来手術中心の施設は低く（0.3）設定するとスコアが実感に合います。上の「定時重視」と足して1.0にしてください。">?</span></label>
           <input type="number" id="weightEmergInput" value="0.5" min="0" max="1" step="0.05">
         </div>
         <div class="input-group">
-          <label>デフォルトターンオーバー (分)<span class="help-icon" data-tip="OR室個別設定が未入力の場合のフォールバック値。手術と手術の間の準備時間。">?</span></label>
+          <label>手術と手術の間の準備時間 (分)<span class="help-icon" data-tip="前の手術が終わってから次の手術を始めるまでの時間（清拭・器具セットアップ・患者入退室など）。OR室ごとに設定していない場合はここで一括設定できます。通常10〜20分。">?</span></label>
           <input type="number" id="turnoverInput" value="15" min="0" max="60" step="5">
         </div>
       </div>
@@ -681,11 +681,11 @@ canvas { display: block; }
 <!-- ===== TAB: シミュレーション ===== -->
 <div class="tab-panel" id="tab-simulation">
   <div class="card" style="margin-top:12px;">
-    <div class="card-header"><span class="card-title">Monte Carlo シミュレーション</span></div>
+    <div class="card-header"><span class="card-title">OR配置シミュレーション</span></div>
     <div class="card-body">
       <div style="font-size:13px; color:var(--text2); line-height:1.6;">
-        30配置パターン × 1,000試行 = 30,000回のシミュレーション。
-        定時完了率と緊急対応維持率のスコアで上位3配置を提示します。
+        担当者の配置パターンを30種類生成し、それぞれ1,000通りの「今日の手術時間のゆれ」を想定して計算します。<br>
+        「定時で終わりやすく、かつ緊急が入っても対応しやすい」上位3配置を提示します。
       </div>
       <div id="sim-prereq" class="banner warn" style="margin-top:10px; display:none;">
         <span>シミュレーション実行には手術・スタッフ・OR室がそれぞれ1件以上必要です。</span>
@@ -844,33 +844,33 @@ canvas { display: block; }
 
     <div style="margin-top:12px;">
       <div class="input-group">
-        <label>σ プリセット<span class="help-icon" data-tip="σ（シグマ）は手術時間のばらつきを表す係数です。例えばσ=0.15なら「予定90分の手術は対数正規分布でほぼ76〜106分の範囲に収まる」イメージ。数値が大きいほど読めない手術です。術式の種類で選んでください。">?</span></label>
+        <label>時間の読みにくさ<span class="help-icon" data-tip="「この手術、予定通りに終わりますか？」という読みにくさを4段階で選びます。腹腔鏡や内視鏡は読みやすく、心臓や脳外は読みにくい。この設定がシミュレーションの精度に一番影響します。">?</span></label>
       </div>
       <div class="sigma-grid" id="s-sigma-grid">
         <button class="sigma-btn" data-sigma="0.15">
-          <span class="sigma-btn-label">短時間・予測可能 σ=0.15</span>
+          <span class="sigma-btn-label">読みやすい</span>
           <span class="sigma-btn-sub">腹腔鏡・内視鏡・整形スコープ等</span>
         </button>
         <button class="sigma-btn active" data-sigma="0.25">
-          <span class="sigma-btn-label">中程度 σ=0.25</span>
+          <span class="sigma-btn-label">やや読みにくい</span>
           <span class="sigma-btn-sub">開腹胆嚢・鼠径ヘルニア・甲状腺等</span>
         </button>
         <button class="sigma-btn" data-sigma="0.35">
-          <span class="sigma-btn-label">大手術 σ=0.35</span>
+          <span class="sigma-btn-label">読みにくい</span>
           <span class="sigma-btn-sub">開腹大腸・胃切除・肝切除等</span>
         </button>
         <button class="sigma-btn" data-sigma="0.45">
-          <span class="sigma-btn-label">複雑・長時間 σ=0.45</span>
+          <span class="sigma-btn-label">かなり読みにくい</span>
           <span class="sigma-btn-sub">心臓・脳外・皮弁再建等</span>
         </button>
         <button class="sigma-btn" data-sigma="custom">
-          <span class="sigma-btn-label">カスタム</span>
-          <span class="sigma-btn-sub">手動入力 0〜100%</span>
+          <span class="sigma-btn-label">手動設定</span>
+          <span class="sigma-btn-sub">詳しく設定したい場合</span>
         </button>
       </div>
       <div class="custom-sigma-wrap" id="custom-sigma-wrap">
         <div class="input-group">
-          <label>カスタムσ (%)</label>
+          <label>ズレやすさ (%)<span class="help-icon" data-tip="予定時間からどれくらいズレるかを%で入力します。15%なら「予定の±15%程度に収まる読みやすい手術」、40%以上なら「大きくズレることがある手術」です。">?</span></label>
           <input type="number" id="s-sigma-custom" value="30" min="1" max="100">
         </div>
       </div>
@@ -879,15 +879,15 @@ canvas { display: block; }
     <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
       <div class="toggle-row" id="s-teaching-row">
         <div>
-          <div class="toggle-label">指導フラグ<span class="help-icon" data-tip="研修医・専攻医が執刀する手術にON。指導が入るため時間のばらつきが増え、σが1.5倍になります。結果として定時完了リスクが高くなります。">?</span></div>
-          <div class="toggle-sublabel">ON時: σ × 1.5</div>
+          <div class="toggle-label">研修医・専攻医が執刀する<span class="help-icon" data-tip="ONにすると、指導が入る分だけ時間が読みにくくなるとしてシミュレーションされます。ベテランが執刀する場合はOFFのままでOK。">?</span></div>
+          <div class="toggle-sublabel">時間のズレが大きくなります</div>
         </div>
         <div class="toggle-switch" id="s-teaching-toggle"></div>
       </div>
       <div class="toggle-row" id="s-longcase-row">
         <div>
-          <div class="toggle-label">Long-caseフラグ<span class="help-icon" data-tip="心臓手術など、最初から定時終了を想定しない長時間手術にON。「定時完了率」の計算から除外され、スコアに不利な影響を与えません。">?</span></div>
-          <div class="toggle-sublabel">定時完了率の分母から除外</div>
+          <div class="toggle-label">定時終了を想定しない手術<span class="help-icon" data-tip="心臓手術・肝移植など、最初から長時間を見込んでいる手術はON。「定時で終わったか」の集計から外れるので、スコアに悪影響を与えません。">?</span></div>
+          <div class="toggle-sublabel">心臓・肝移植等の長時間手術</div>
         </div>
         <div class="toggle-switch" id="s-longcase-toggle"></div>
       </div>
@@ -911,7 +911,7 @@ canvas { display: block; }
       </div>
     </div>
     <div style="margin-top:10px;">
-      <div class="section-title">資格タグ<span class="help-icon" data-tip="このスタッフが対応できる麻酔・手術の種類。複数選択可。シミュレーション時、指導フラグのある手術は「指導医」タグを持つスタッフが同室に必要です。">?</span></div>
+      <div class="section-title">対応できる麻酔の種類<span class="help-icon" data-tip="このスタッフが担当できる麻酔・術式を選びます。「研修医・専攻医が執刀する」手術を組んだ場合、「指導医」に選ばれたスタッフが必ず同室に配置されます。">?</span></div>
       <div class="chip-group" id="p-quals-chips">
         <div class="chip" data-qual="general">全身麻酔</div>
         <div class="chip" data-qual="regional">区域麻酔</div>
@@ -925,7 +925,7 @@ canvas { display: block; }
     </div>
     <div style="margin-top:10px;">
       <div class="input-group">
-        <label>対応可能術式 (カンマ区切り)<span class="help-icon" data-tip="特殊術式の専門資格がある場合に入力。例: 心臓手術専門のスタッフは「心臓」と記入。手術側の術式名と照合され、配置の優先度に使われます。">?</span></label>
+        <label>専門とする術式 (カンマ区切り)<span class="help-icon" data-tip="特殊な専門性がある場合に入力。例: 心臓手術専門なら「心臓」。現在は記録のみで参考情報ですが、将来的に配置の制約に活用予定です。">?</span></label>
         <input type="text" id="p-specialties" placeholder="例: 心臓, 脳外, 小児">
       </div>
     </div>
@@ -946,29 +946,29 @@ canvas { display: block; }
         <input type="text" id="r-name" placeholder="例: OR1">
       </div>
       <div class="input-group">
-        <label>コア開始 (HH:MM)<span class="help-icon" data-tip="最初の手術を開始できる時刻。通常は麻酔導入開始時刻（例: 08:30）。">?</span></label>
+        <label>最初の手術の開始時刻<span class="help-icon" data-tip="この部屋で1件目の麻酔導入を始められる時刻。病院のルールに合わせてください（例: 08:30）。">?</span></label>
         <input type="text" id="r-start" value="08:30">
       </div>
       <div class="input-group">
-        <label>コア終了 (HH:MM)<span class="help-icon" data-tip="この時刻を超えた手術は「定時超過」としてカウントされます。通常は手術終了・退室の目標時刻（例: 17:30）。">?</span></label>
+        <label>定時終了の目標時刻<span class="help-icon" data-tip="この時刻を過ぎて手術が続いていると「残業」としてカウントされます。病院の規定終了時刻を入れてください（例: 17:30）。">?</span></label>
         <input type="text" id="r-end" value="17:30">
       </div>
       <div class="input-group">
-        <label>ターンオーバー (分)<span class="help-icon" data-tip="手術と手術の間の準備時間（清拭・滅菌器具セットアップ・患者入退室など）。この病院のデフォルト値を入れてください。通常10〜20分。">?</span></label>
+        <label>手術と手術の間の準備時間 (分)<span class="help-icon" data-tip="前の手術が終わってから次の手術を始めるまでの時間（清拭・器具セットアップ・患者入退室など）。この部屋の実態に合わせて入れてください。通常10〜20分。">?</span></label>
         <input type="number" id="r-turnover" value="15" min="0" max="60">
       </div>
     </div>
     <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
       <div class="toggle-row" id="r-emergency-row">
         <div>
-          <div class="toggle-label">緊急対応可<span class="help-icon" data-tip="緊急手術（予定外）がこの部屋を使用できるかどうか。ONにすると、シミュレーションで緊急ケース発生時にこの部屋が候補になります。">?</span></div>
+          <div class="toggle-label">緊急手術を入れられる部屋<span class="help-icon" data-tip="予定外の緊急手術を受け入れられる部屋はON。心臓や脳外など特定の手術専用部屋はOFFにしておくと、緊急の影響を受けません。">?</span></div>
           <div class="toggle-sublabel">この部屋は緊急ケースを受け入れる</div>
         </div>
         <div class="toggle-switch" id="r-emergency-toggle"></div>
       </div>
     </div>
     <div style="margin-top:10px;">
-      <div class="section-title">機器フラグ<span class="help-icon" data-tip="この部屋が持つ特殊機器。心肺バイパスが必要な心臓手術は「心肺バイパス」フラグのある部屋にのみ配置されます。（現在はフラグ記録のみ。将来的に配置制約に使用予定）">?</span></div>
+      <div class="section-title">この部屋にある特殊機器<span class="help-icon" data-tip="この部屋で使える特殊機器を記録します。将来的に「心肺バイパスが必要な手術はこの部屋だけ」のような制約チェックに使う予定です。">?</span></div>
       <div class="chip-group" id="r-equip-chips">
         <div class="chip" data-equip="cardiac_bypass">心肺バイパス</div>
         <div class="chip" data-equip="robotics">ロボット手術</div>
@@ -2382,14 +2382,22 @@ long_case: 心臓・肝移植など長時間手術はtrue
       const modal = document.createElement('div');
       modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;';
       modal.innerHTML = `
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:460px;width:100%;">
-          <div style="font-size:16px;font-weight:700;margin-bottom:12px;">📷 AI入力の使い方</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:480px;width:100%;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:8px;">📷 AI入力の使い方</div>
+
+          <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.6;color:#fbbf24;">
+            ⚠️ <strong>個人情報に注意してください</strong><br>
+            手術予定表に<strong>患者名・患者ID・生年月日</strong>が含まれる場合は、撮影前に付箋や指などでマスキングしてください。<br>
+            Claude.aiはAnthropic社（米国）のサービスです。施設のセキュリティポリシーをご確認のうえご利用ください。<br>
+            不安な場合は手動入力を推奨します。
+          </div>
+
           <ol style="font-size:13px;color:var(--text2);line-height:1.8;padding-left:18px;margin:0 0 16px;">
-            <li>プロンプトをクリップボードにコピーしました ✓</li>
+            <li>患者情報を隠してから手術予定表を撮影</li>
             <li>Claude.aiを開く（下のボタン）</li>
-            <li>手術予定表の<strong style="color:var(--text);">写真を添付</strong></li>
-            <li>コピーしたプロンプトを<strong style="color:var(--text);">貼り付けて送信</strong></li>
-            <li>返ってきたJSONをコピー</li>
+            <li>写真を<strong style="color:var(--text);">添付</strong>する</li>
+            <li>コピー済みのプロンプトを<strong style="color:var(--text);">貼り付けて送信</strong></li>
+            <li>返ってきたデータをコピー</li>
             <li>OR-Simの<strong style="color:var(--text);">「読込」ボタン</strong>でインポート</li>
           </ol>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -2410,7 +2418,7 @@ long_case: 心臓・肝移植など長時間手術はtrue
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const swCode = `
-    const CACHE = 'orsim-v2';
+    const CACHE = 'orsim-v3';
     self.addEventListener('install', e => {
       e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/orsim/', '/orsim/index.html'])));
       self.skipWaiting();
