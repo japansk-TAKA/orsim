@@ -654,6 +654,40 @@ canvas { display: block; }
   </div>
 
   <div class="card" style="margin-top:16px;">
+    <div class="card-header"><span class="card-title">AM/PMスロット設定</span></div>
+    <div class="card-body">
+      <div style="font-size:12px; color:var(--text2); margin-bottom:10px; line-height:1.5;">
+        手術名に「（AM）」または「（PM）」が含まれる場合、その開始時刻まで待機します。同一部屋でAM→PM連続の場合、空き時間がガントチャートにグレーバーで表示されます。
+      </div>
+      <div class="form-grid">
+        <div class="input-group">
+          <label>AMスタート時刻<span class="help-icon" data-tip="手術名に（AM）が含まれる場合、この時刻に開始します。デフォルト: 08:30">?</span></label>
+          <input type="text" id="amStartInput" value="08:30" placeholder="08:30">
+        </div>
+        <div class="input-group">
+          <label>PMスタート時刻<span class="help-icon" data-tip="手術名に（PM）が含まれる場合、この時刻まで待機してから開始します。デフォルト: 13:00">?</span></label>
+          <input type="text" id="pmStartInput" value="13:00" placeholder="13:00">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="card-header"><span class="card-title">稼働率・収益ロス設定</span></div>
+    <div class="card-body">
+      <div style="font-size:12px; color:var(--text2); margin-bottom:10px; line-height:1.5;">
+        OR運営コストは空き時間1時間あたりの機会損失額です（文献値: ¥70,000/時間、Macario 2010）。
+      </div>
+      <div class="form-grid">
+        <div class="input-group">
+          <label>OR運営コスト (円/時間)<span class="help-icon" data-tip="空き時間1時間あたりの収益ロス。文献値は約7万円/時間（人件費・設備費・機会損失の合計）。施設に合わせて変更可能。">?</span></label>
+          <input type="number" id="orCostInput" value="70000" min="0" step="1000">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
     <div class="card-header"><span class="card-title">シミュレーション設定</span></div>
     <div class="card-body">
       <div class="form-grid">
@@ -718,6 +752,14 @@ canvas { display: block; }
           <canvas id="ganttCanvas"></canvas>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- OR稼働率・収益ロス -->
+  <div id="utilization-section" style="display:none;">
+    <div class="card" style="margin-top:12px;">
+      <div class="card-header"><span class="card-title">OR稼働率・収益ロス</span></div>
+      <div class="card-body" id="utilization-body"></div>
     </div>
   </div>
 
@@ -800,6 +842,13 @@ canvas { display: block; }
       </div>
     </div>
 
+    <div class="card" style="margin-top:12px;" id="report-utilization-card" style="display:none;">
+      <div class="card-header"><span class="card-title">最新シミュレーション — 稼働率サマリー</span></div>
+      <div class="card-body" id="report-utilization-body">
+        <div style="font-size:12px; color:var(--text3);">シミュレーション実行後に表示されます。</div>
+      </div>
+    </div>
+
     <div style="margin-top:12px;">
       <button class="btn btn-ghost btn-sm" id="recordTodayBtn">本日の実績を記録</button>
     </div>
@@ -808,7 +857,7 @@ canvas { display: block; }
 
 <div class="footer">
   このシミュレーションは意思決定支援ツールです。最終判断は常に医師が行ってください。<br>
-  OR-Sim v1.0.0 — Offline First, No external dependencies
+  OR-Sim v2.0.0 — Offline First, No external dependencies
 </div>
 
 </div><!-- /content -->
@@ -929,6 +978,19 @@ canvas { display: block; }
         <input type="text" id="p-specialties" placeholder="例: 心臓, 脳外, 小児">
       </div>
     </div>
+    <div style="margin-top:10px;">
+      <div class="section-title">勤務シフト<span class="help-icon" data-tip="担当する手術がこのシフト時間外になる場合、ガントチャートで赤くハイライトされます。シフト違反として警告フラグが立ちます。">?</span></div>
+      <div class="form-grid">
+        <div class="input-group">
+          <label>勤務開始</label>
+          <input type="text" id="p-shift-start" value="08:30" placeholder="08:30">
+        </div>
+        <div class="input-group">
+          <label>勤務終了</label>
+          <input type="text" id="p-shift-end" value="17:30" placeholder="17:30">
+        </div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="staffModalCancel">キャンセル</button>
       <button class="btn btn-primary" id="staffModalSave">保存</button>
@@ -1012,6 +1074,9 @@ canvas { display: block; }
 // ── CONSTANTS ────────────────────────────────────────────────
 const LS_KEY = 'orsim_v1';
 const HIST_KEY = 'orsim_history_v1';
+const DEFAULT_AM_START = '08:30';
+const DEFAULT_PM_START = '13:00';
+const DEFAULT_OR_COST = 70000; // ¥/hour — Macario 2010, Anesth Analg
 const OR_COLORS = [
   '#5b8cf7','#22c55e','#f59e0b','#a855f7',
   '#06b6d4','#ef4444','#ec4899','#14b8a6'
@@ -1028,7 +1093,10 @@ let state = {
     emergency_weight: 0.5,
     default_turnover: 15,
     strategy: 'greedy',
-    use_sigma_correction: false
+    use_sigma_correction: false,
+    am_start: DEFAULT_AM_START,
+    pm_start: DEFAULT_PM_START,
+    or_cost_per_hour: DEFAULT_OR_COST
   }
 };
 
@@ -1168,9 +1236,26 @@ function generatePlacements(surgeries, staff, rooms, count) {
   return placements;
 }
 
+// ── AM/PM SLOT HELPER ────────────────────────────────────────
+function getSlotConstraint(surgName, config) {
+  // Returns the earliest allowed start time in minutes, or null if no constraint
+  const name = surgName || '';
+  if (name.includes('（AM）') || name.includes('(AM)')) {
+    return parseHHMM((config && config.am_start) || DEFAULT_AM_START);
+  }
+  if (name.includes('（PM）') || name.includes('(PM)')) {
+    return parseHHMM((config && config.pm_start) || DEFAULT_PM_START);
+  }
+  return null;
+}
+
 function buildBaseAssignment(sortedSurgeries, staffList, rooms) {
-  const roomLoad = {};
-  rooms.forEach(r => { roomLoad[r.id] = 0; });
+  const roomLoad = {};      // minutes of surgery+turnover already scheduled per room
+  const roomCursor = {};    // absolute minute of next available slot per room
+  rooms.forEach(r => {
+    roomLoad[r.id] = 0;
+    roomCursor[r.id] = parseHHMM(r.core_start || '08:30');
+  });
   const assignment = [];
 
   sortedSurgeries.forEach((surg, idx) => {
@@ -1180,19 +1265,38 @@ function buildBaseAssignment(sortedSurgeries, staffList, rooms) {
     }
     if (!targetRoom) {
       targetRoom = rooms.reduce((best, r) =>
-        (roomLoad[r.id] || 0) < (roomLoad[best.id] || 0) ? r : best, rooms[0]);
+        (roomCursor[r.id] || 0) < (roomCursor[best.id] || 0) ? r : best, rooms[0]);
     }
     const assignedStaff = staffList[idx % Math.max(1, staffList.length)];
-    const turnover = (targetRoom && targetRoom.turnover != null) ? targetRoom.turnover : state.config.default_turnover;
-    const coreStart = targetRoom ? parseHHMM(targetRoom.core_start) : 510;
-    const startMin = coreStart + (roomLoad[targetRoom.id] || 0);
+    const turnover = (targetRoom && targetRoom.turnover != null) ? targetRoom.turnover : (self.state || state).config.default_turnover;
+
+    const config = (self.state || state).config;
+    const slotConstraint = getSlotConstraint(surg.name, config);
+    let startMin = roomCursor[targetRoom.id];
+
+    // Wait until slot constraint (AM/PM) if needed
+    let waitMin = 0;
+    if (slotConstraint !== null && startMin < slotConstraint) {
+      waitMin = slotConstraint - startMin;
+      startMin = slotConstraint;
+    }
+
+    roomCursor[targetRoom.id] = startMin + surg.duration + turnover;
     roomLoad[targetRoom.id] = (roomLoad[targetRoom.id] || 0) + surg.duration + turnover;
+
+    // Detect shift violations
+    const staffMember = staffList.find(s => s.id === (assignedStaff ? assignedStaff.id : null));
+    const shiftStart = staffMember ? parseHHMM(staffMember.shift_start || DEFAULT_AM_START) : 0;
+    const shiftEnd = staffMember ? parseHHMM(staffMember.shift_end || '17:30') : 1440;
+    const shiftViolation = startMin < shiftStart || (startMin + surg.duration) > shiftEnd;
 
     assignment.push({
       surgery_id: surg.id,
       staff_id: assignedStaff ? assignedStaff.id : null,
       room_id: targetRoom.id,
-      start_min: startMin
+      start_min: startMin,
+      wait_min: waitMin,        // idle gap before this surgery (for gantt grey bar)
+      shift_violation: shiftViolation
     });
   });
   return assignment;
@@ -1272,6 +1376,42 @@ function scoreAndRank(results, scoring) {
   return scored;
 }
 
+// ── OR UTILIZATION & REVENUE LOSS ───────────────────────────
+function calcUtilization(placementResult) {
+  if (!placementResult || !placementResult.assignment) return null;
+  const { assignment } = placementResult;
+  const rooms = state.rooms;
+  if (!rooms.length) return null;
+
+  const roomStats = {};
+  rooms.forEach(r => {
+    const coreStart = parseHHMM(r.core_start || '08:30');
+    const coreEnd = parseHHMM(r.core_end || '17:30');
+    const coreMin = Math.max(0, coreEnd - coreStart);
+    roomStats[r.id] = { name: r.name, coreMin, surgMin: 0, idleMin: 0 };
+  });
+
+  // Compute surgery minutes per room
+  assignment.forEach(a => {
+    const surg = state.surgeries.find(s => s.id === a.surgery_id);
+    if (!surg || !roomStats[a.room_id]) return;
+    roomStats[a.room_id].surgMin += surg.duration;
+  });
+
+  // Idle = coreMin - surgMin (clamped to 0)
+  let totalIdleMin = 0;
+  Object.values(roomStats).forEach(rs => {
+    rs.idleMin = Math.max(0, rs.coreMin - rs.surgMin);
+    rs.utilization = rs.coreMin > 0 ? Math.min(1, rs.surgMin / rs.coreMin) : 0;
+    totalIdleMin += rs.idleMin;
+  });
+
+  const orCostPerMin = (state.config.or_cost_per_hour || DEFAULT_OR_COST) / 60;
+  const totalRevLoss = Math.round(totalIdleMin * orCostPerMin);
+
+  return { roomStats, totalIdleMin, totalRevLoss };
+}
+
 // ── SIMULATE (pure function) ─────────────────────────────────
 function simulate({ surgeries, staff, rooms, config }) {
   const placements = generatePlacements(surgeries, staff, rooms, 30);
@@ -1284,12 +1424,15 @@ function runSimulationAsync(onProgress, onComplete) {
   // Inline worker code as string
   const workerCode = `
     'use strict';
+    const DEFAULT_AM_START = '${DEFAULT_AM_START}';
+    const DEFAULT_PM_START = '${DEFAULT_PM_START}';
     ${seededRng.toString()}
     ${seededShuffle.toString()}
     ${poissonSample.toString()}
     ${logNormalSample.toString()}
     ${parseHHMM.toString()}
     ${calcOnTimeRate.toString()}
+    ${getSlotConstraint.toString()}
     ${buildBaseAssignment.toString()}
     ${applyRandomSwaps.toString()}
     ${monteCarlo.toString()}
@@ -1371,7 +1514,12 @@ function drawGantt(placementResult, canvasEl) {
     const surg = state.surgeries.find(s => s.id === a.surgery_id);
     const staff = state.staff.find(s => s.id === a.staff_id);
     if (!surg || !roomMap[a.room_id]) return;
-    roomMap[a.room_id].push({ surg, staff, start_min: a.start_min });
+    roomMap[a.room_id].push({
+      surg, staff,
+      start_min: a.start_min,
+      wait_min: a.wait_min || 0,
+      shift_violation: !!a.shift_violation
+    });
   });
 
   const ROW_H = 52;
@@ -1453,22 +1601,69 @@ function drawGantt(placementResult, canvasEl) {
     // Surgery blocks
     const blocks = roomMap[room.id] || [];
     blocks.forEach((b, bi) => {
+      const color = OR_COLORS[ri % OR_COLORS.length];
+
+      // Grey idle/wait bar (AM/PM gap)
+      if (b.wait_min > 0) {
+        const waitStart = b.start_min - b.wait_min;
+        const wx = chartX + ((waitStart - minTime) / timeSpan) * chartW;
+        const ww = Math.max((b.wait_min / timeSpan) * chartW, 2);
+        const wy = y + 6;
+        const wh = ROW_H - 14;
+        ctx.fillStyle = 'rgba(120,120,140,0.18)';
+        roundRect(ctx, wx, wy, ww, wh, 4);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(120,120,140,0.35)';
+        ctx.lineWidth = 1;
+        roundRect(ctx, wx, wy, ww, wh, 4);
+        ctx.stroke();
+        // Label for gap
+        if (ww > 28) {
+          ctx.fillStyle = '#606070';
+          ctx.font = '9px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('空き', wx + ww / 2, wy + wh / 2 + 3);
+        }
+      }
+
       const bx = chartX + ((b.start_min - minTime) / timeSpan) * chartW;
       const bw = Math.max((b.surg.duration / timeSpan) * chartW, 4);
       const by = y + 6;
       const bh = ROW_H - 14;
 
-      const color = OR_COLORS[ri % OR_COLORS.length];
       const isOvertime = (b.start_min + b.surg.duration) > coreEnd;
+      const isShiftViolation = b.shift_violation;
 
-      ctx.fillStyle = isOvertime ? 'rgba(239,68,68,0.7)' : color + 'cc';
+      // Fill color: shift violation = red overlay, otherwise normal/overtime
+      if (isShiftViolation) {
+        ctx.fillStyle = 'rgba(239,68,68,0.75)';
+      } else {
+        ctx.fillStyle = isOvertime ? 'rgba(239,68,68,0.7)' : color + 'cc';
+      }
       roundRect(ctx, bx, by, bw, bh, 4);
       ctx.fill();
 
-      ctx.strokeStyle = isOvertime ? '#ef4444' : color;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isShiftViolation ? '#ff4444' : (isOvertime ? '#ef4444' : color);
+      ctx.lineWidth = isShiftViolation ? 2 : 1;
       roundRect(ctx, bx, by, bw, bh, 4);
       ctx.stroke();
+
+      // Shift violation diagonal stripe overlay
+      if (isShiftViolation) {
+        ctx.save();
+        ctx.beginPath();
+        roundRect(ctx, bx, by, bw, bh, 4);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(255,100,100,0.4)';
+        ctx.lineWidth = 2;
+        for (let dx = -bh; dx < bw + bh; dx += 8) {
+          ctx.beginPath();
+          ctx.moveTo(bx + dx, by);
+          ctx.lineTo(bx + dx + bh, by + bh);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
 
       // Label
       if (bw > 30) {
@@ -1478,7 +1673,8 @@ function drawGantt(placementResult, canvasEl) {
         ctx.save();
         ctx.rect(bx + 2, by, bw - 4, bh);
         ctx.clip();
-        ctx.fillText(b.surg.name.substring(0, 12), bx + 4, by + bh / 2 + 4);
+        const label = (isShiftViolation ? '⚠ ' : '') + b.surg.name.substring(0, 12);
+        ctx.fillText(label, bx + 4, by + bh / 2 + 4);
         ctx.restore();
       }
     });
@@ -1504,6 +1700,20 @@ function migrate(data) {
   if (!data.version) {
     data.surgeries = (data.surgeries || []).map(s => ({ ...s, historical_sigma: null }));
     data.version = 1;
+  }
+  // v2: add shift fields to staff
+  if (Array.isArray(data.staff)) {
+    data.staff = data.staff.map(s => ({
+      shift_start: DEFAULT_AM_START,
+      shift_end: '17:30',
+      ...s
+    }));
+  }
+  // v2: add config fields
+  if (data.config) {
+    if (!data.config.am_start) data.config.am_start = DEFAULT_AM_START;
+    if (!data.config.pm_start) data.config.pm_start = DEFAULT_PM_START;
+    if (data.config.or_cost_per_hour == null) data.config.or_cost_per_hour = DEFAULT_OR_COST;
   }
   return data;
 }
@@ -1610,10 +1820,12 @@ function renderStaff() {
     const qualLabels = { general:'全身麻酔', regional:'区域麻酔', cardiac:'心臓麻酔',
       neuro:'脳神経麻酔', pediatric:'小児麻酔', obstetric:'産科麻酔', emergency:'緊急対応', supervise:'指導医' };
     const quals = (s.quals || []).map(q => `<span class="badge badge-blue">${qualLabels[q]||q}</span>`).join('');
+    const shiftStart = s.shift_start || DEFAULT_AM_START;
+    const shiftEnd = s.shift_end || '17:30';
     return `<div class="list-item">
       <div class="list-item-content">
         <div class="list-item-title">${escHtml(s.name)}</div>
-        <div class="list-item-sub">${quals}${s.specialties ? `<span class="badge badge-gray">${escHtml(s.specialties)}</span>` : ''}</div>
+        <div class="list-item-sub">${quals}${s.specialties ? `<span class="badge badge-gray">${escHtml(s.specialties)}</span>` : ''}<span class="badge badge-gray">シフト ${shiftStart}〜${shiftEnd}</span></div>
       </div>
       <div class="list-item-actions">
         <button class="btn btn-ghost btn-sm" onclick="openEditStaff(${i})">編集</button>
@@ -1686,11 +1898,80 @@ function renderSimResults() {
   ).join('');
 
   drawGantt(simResults[selectedPlacementIdx], document.getElementById('ganttCanvas'));
+
+  // OR Utilization
+  renderUtilizationSection(simResults[selectedPlacementIdx]);
 }
 
 function selectPlacement(idx) {
   selectedPlacementIdx = idx;
   renderSimResults();
+}
+
+function renderUtilizationSection(placementResult) {
+  const section = document.getElementById('utilization-section');
+  const body = document.getElementById('utilization-body');
+  if (!placementResult) { section.style.display = 'none'; return; }
+
+  const util = calcUtilization(placementResult);
+  if (!util) { section.style.display = 'none'; return; }
+
+  section.style.display = '';
+
+  const { roomStats, totalIdleMin, totalRevLoss } = util;
+  const rooms = Object.values(roomStats);
+  const totalCoreMin = rooms.reduce((s, r) => s + r.coreMin, 0);
+  const totalSurgMin = rooms.reduce((s, r) => s + r.surgMin, 0);
+  const overallUtil = totalCoreMin > 0 ? totalSurgMin / totalCoreMin : 0;
+
+  // Shift violation count
+  const shiftViolationCount = placementResult.assignment
+    ? placementResult.assignment.filter(a => a.shift_violation).length
+    : 0;
+
+  let html = `
+    <div class="stat-grid" style="margin-top:0;">
+      <div class="stat-card">
+        <div class="stat-val">${pct(overallUtil)}</div>
+        <div class="stat-lbl">全体稼働率</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${totalIdleMin}分</div>
+        <div class="stat-lbl">合計空き時間</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--danger);">¥${totalRevLoss.toLocaleString()}</div>
+        <div class="stat-lbl">推定収益ロス</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:${shiftViolationCount > 0 ? 'var(--danger)' : 'var(--success)'};">${shiftViolationCount}</div>
+        <div class="stat-lbl">シフト違反件数</div>
+      </div>
+    </div>
+    <div class="section-title" style="margin-top:14px;">部屋別稼働率</div>`;
+
+  rooms.forEach(rs => {
+    const barW = Math.round(rs.utilization * 100);
+    const barColor = rs.utilization >= 0.85 ? 'var(--success)' : rs.utilization >= 0.65 ? 'var(--warn)' : 'var(--danger)';
+    html += `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+          <span style="font-weight:600;">${escHtml(rs.name)}</span>
+          <span style="color:var(--text2);">${pct(rs.utilization)} — 空き ${rs.idleMin}分</span>
+        </div>
+        <div style="background:var(--bg4);border-radius:4px;height:10px;overflow:hidden;">
+          <div style="height:100%;width:${barW}%;background:${barColor};border-radius:4px;transition:width 0.3s;"></div>
+        </div>
+      </div>`;
+  });
+
+  if (shiftViolationCount > 0) {
+    html += `<div class="banner danger" style="margin-top:10px;">
+      <span>⚠ ${shiftViolationCount}件のシフト違反があります。ガントチャートで赤いストライプのバーを確認してください。</span>
+    </div>`;
+  }
+
+  body.innerHTML = html;
 }
 
 function renderReport() {
@@ -1739,6 +2020,42 @@ function renderReport() {
     const empSigma = d.sigmaItems > 0 ? (d.sigmaSum / d.sigmaItems).toFixed(2) : '—';
     return `<tr><td>${escHtml(dept)}</td><td>${d.count}</td><td>${pct(overRate)}</td><td>${empSigma}</td></tr>`;
   }).join('');
+
+  // Utilization in report
+  const reportUtilCard = document.getElementById('report-utilization-card');
+  const reportUtilBody = document.getElementById('report-utilization-body');
+  if (simResults && simResults.length) {
+    reportUtilCard.style.display = '';
+    const util = calcUtilization(simResults[selectedPlacementIdx] || simResults[0]);
+    if (util) {
+      const { roomStats, totalIdleMin, totalRevLoss } = util;
+      const rooms2 = Object.values(roomStats);
+      const totalCoreMin2 = rooms2.reduce((s, r) => s + r.coreMin, 0);
+      const totalSurgMin2 = rooms2.reduce((s, r) => s + r.surgMin, 0);
+      const overallUtil2 = totalCoreMin2 > 0 ? totalSurgMin2 / totalCoreMin2 : 0;
+      let rHtml = `<div class="stat-grid" style="margin-top:0;">
+        <div class="stat-card"><div class="stat-val">${pct(overallUtil2)}</div><div class="stat-lbl">全体稼働率</div></div>
+        <div class="stat-card"><div class="stat-val">${totalIdleMin}分</div><div class="stat-lbl">合計空き時間</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--danger);">¥${totalRevLoss.toLocaleString()}</div><div class="stat-lbl">推定収益ロス</div></div>
+      </div>`;
+      rooms2.forEach(rs => {
+        const barW = Math.round(rs.utilization * 100);
+        const barColor = rs.utilization >= 0.85 ? 'var(--success)' : rs.utilization >= 0.65 ? 'var(--warn)' : 'var(--danger)';
+        rHtml += `<div style="margin-top:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+            <span style="font-weight:600;">${escHtml(rs.name)}</span>
+            <span style="color:var(--text2);">${pct(rs.utilization)}</span>
+          </div>
+          <div style="background:var(--bg4);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="height:100%;width:${barW}%;background:${barColor};border-radius:4px;"></div>
+          </div>
+        </div>`;
+      });
+      reportUtilBody.innerHTML = rHtml;
+    }
+  } else {
+    reportUtilCard.style.display = 'none';
+  }
 
   // Sigma correction table
   const corrToggle = document.getElementById('sigmaCorrToggle');
@@ -1816,6 +2133,8 @@ function openStaffModal(idx) {
   document.getElementById('staffModalTitle').textContent = isEdit ? 'スタッフを編集' : 'スタッフを追加';
   document.getElementById('p-name').value = isEdit ? s.name : '';
   document.getElementById('p-specialties').value = isEdit ? (s.specialties || '') : '';
+  document.getElementById('p-shift-start').value = isEdit ? (s.shift_start || DEFAULT_AM_START) : DEFAULT_AM_START;
+  document.getElementById('p-shift-end').value = isEdit ? (s.shift_end || '17:30') : '17:30';
 
   pQuals = isEdit ? [...(s.quals || [])] : [];
   document.querySelectorAll('#p-quals-chips .chip').forEach(c => {
@@ -1938,6 +2257,7 @@ function clearData() {
   history = [];
   simResults = null;
   document.getElementById('sim-results').style.display = 'none';
+  document.getElementById('utilization-section').style.display = 'none';
   document.getElementById('emergency-section').style.display = 'none';
   renderAll();
 }
@@ -1951,6 +2271,9 @@ function renderAll() {
   document.getElementById('weightOntimeInput').value = state.config.on_time_weight;
   document.getElementById('weightEmergInput').value = state.config.emergency_weight;
   document.getElementById('turnoverInput').value = state.config.default_turnover;
+  document.getElementById('amStartInput').value = state.config.am_start || DEFAULT_AM_START;
+  document.getElementById('pmStartInput').value = state.config.pm_start || DEFAULT_PM_START;
+  document.getElementById('orCostInput').value = state.config.or_cost_per_hour != null ? state.config.or_cost_per_hour : DEFAULT_OR_COST;
   renderReport();
   if (simResults) renderSimResults();
 }
@@ -1984,6 +2307,7 @@ function runSimulation() {
       simResults = results;
       selectedPlacementIdx = 0;
       document.getElementById('sim-results').style.display = '';
+      document.getElementById('utilization-section').style.display = '';
       document.getElementById('emergency-section').style.display = '';
       renderSimResults();
     }
@@ -2182,7 +2506,9 @@ function initEvents() {
       id: editingStaffIdx >= 0 ? state.staff[editingStaffIdx].id : genId(),
       name,
       quals: [...pQuals],
-      specialties: document.getElementById('p-specialties').value.trim()
+      specialties: document.getElementById('p-specialties').value.trim(),
+      shift_start: document.getElementById('p-shift-start').value || DEFAULT_AM_START,
+      shift_end: document.getElementById('p-shift-end').value || '17:30'
     };
     if (editingStaffIdx >= 0) { state.staff[editingStaffIdx] = obj; }
     else { state.staff.push(obj); }
@@ -2251,6 +2577,18 @@ function initEvents() {
   });
   document.getElementById('turnoverInput').addEventListener('change', e => {
     state.config.default_turnover = parseInt(e.target.value, 10) || 15;
+    saveState();
+  });
+  document.getElementById('amStartInput').addEventListener('change', e => {
+    state.config.am_start = e.target.value || DEFAULT_AM_START;
+    saveState();
+  });
+  document.getElementById('pmStartInput').addEventListener('change', e => {
+    state.config.pm_start = e.target.value || DEFAULT_PM_START;
+    saveState();
+  });
+  document.getElementById('orCostInput').addEventListener('change', e => {
+    state.config.or_cost_per_hour = parseInt(e.target.value, 10) || DEFAULT_OR_COST;
     saveState();
   });
 
@@ -2418,7 +2756,7 @@ long_case: 心臓・肝移植など長時間手術はtrue
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const swCode = `
-    const CACHE = 'orsim-v3';
+    const CACHE = 'orsim-v4';
     self.addEventListener('install', e => {
       e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/orsim/', '/orsim/index.html'])));
       self.skipWaiting();
