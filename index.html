@@ -2692,29 +2692,59 @@ function initEvents() {
 
   // ── CLAUDE.AI IMPORT ─────────────────────────────────────────
   document.getElementById('claudeImportBtn').addEventListener('click', () => {
-    const prompt = `以下の手術予定表の画像を見て、JSON形式に変換してください。
+    const prompt = `あなたはOR-Sim（手術室配置最適化ツール）用のデータ変換AIです。
+添付された画像（手術予定表・勤務表）を解析し、以下のルールでJSONに変換してください。
 
-出力形式（JSONのみ。説明不要）:
+【個人情報の自動削除（必須）】
+- 患者名・患者ID・生年月日 → 削除（手術名は「術式名のみ」に変換）
+- 執刀医の個人名 → 空文字（""）に置換
+- スタッフ名 → 「麻酔科医A」「麻酔科医B」「看護師A」などに匿名化
+
+【出力形式（JSONのみ。説明不要）】
 {
   "surgeries": [
     {
-      "name": "術式名",
+      "name": "術式名のみ（患者情報なし）",
       "duration": 予定時間(分・整数),
       "dept": "担当科",
       "preferred_room": "OR番号(例:OR1)",
-      "surgeon": "執刀医名",
+      "surgeon": "",
       "sigma": 0.25,
       "teaching": false,
       "long_case": false
     }
+  ],
+  "staff": [
+    {
+      "name": "麻酔科医A",
+      "quals": ["general"],
+      "specialties": "",
+      "shift_start": "08:30",
+      "shift_end": "17:30"
+    }
   ]
 }
 
-σの目安: 腹腔鏡・内視鏡=0.15 / 一般開腹=0.25 / 大手術(大腸・胃・肝)=0.35 / 複雑長時間(心臓・脳外)=0.45
-teaching: 研修医執刀の場合はtrue
-long_case: 心臓・肝移植など長時間手術はtrue
+【時間の読みにくさ（sigma）の自動推定】
+0.15: 内視鏡・皮膚科・短時間手術（〜90分）
+0.25: 一般手術（腹腔鏡・整形・耳鼻科）
+0.35: 大手術（大腸・胃・肝・開腹）
+0.45: 長時間複雑手術（心臓・脳外・食道）
+研修医・専攻医が執刀する場合はsigmaに0.1を加算しteaching=true
 
-【添付画像の手術予定表を変換してください】`;
+【勤務区分の判定（勤務表がある場合）】
+AMのみ・午前のみ → shift_end: "12:30"
+PMのみ・午後から → shift_start: "13:00"
+〜14時・14:00まで等 → shift_end: "14:00"
+スーパーバイザー・指導医 → quals: ["general","supervise"]
+緊急対応可 → quals に "emergency" を追加
+
+【手術名に含める区分】
+午前手術 → 術式名の末尾に「（AM）」を付ける
+午後手術 → 術式名の末尾に「（PM）」を付ける
+
+【添付画像を解析して変換してください】
+※手術予定表と勤務表の両方が添付されている場合は両方を解析し、surgeriesとstaffの両方を出力してください`;
 
     navigator.clipboard.writeText(prompt).then(() => {
       const modal = document.createElement('div');
@@ -2723,20 +2753,23 @@ long_case: 心臓・肝移植など長時間手術はtrue
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:480px;width:100%;">
           <div style="font-size:16px;font-weight:700;margin-bottom:8px;">📷 AI入力の使い方</div>
 
+          <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.6;color:#86efac;">
+            ✅ <strong>患者名・IDはAIが自動削除します</strong><br>
+            送信したプロンプトに「個人情報を削除してから変換」の指示が含まれています。スタッフ名も「麻酔科医A」等に自動匿名化されます。
+          </div>
+
           <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.6;color:#fbbf24;">
-            ⚠️ <strong>個人情報に注意してください</strong><br>
-            手術予定表に<strong>患者名・患者ID・生年月日</strong>が含まれる場合は、撮影前に付箋や指などでマスキングしてください。<br>
-            Claude.aiはAnthropic社（米国）のサービスです。施設のセキュリティポリシーをご確認のうえご利用ください。<br>
-            不安な場合は手動入力を推奨します。
+            ⚠️ Claude.aiはAnthropic社（米国）のサービスです。施設のセキュリティポリシーをご確認のうえご利用ください。
           </div>
 
           <ol style="font-size:13px;color:var(--text2);line-height:1.8;padding-left:18px;margin:0 0 16px;">
-            <li>患者情報を隠してから手術予定表を撮影</li>
+            <li>手術予定表と勤務表を用意（撮影 or スクリーンショット）</li>
             <li>Claude.aiを開く（下のボタン）</li>
-            <li>写真を<strong style="color:var(--text);">添付</strong>する</li>
+            <li>2枚の写真を<strong style="color:var(--text);">添付</strong>する</li>
             <li>コピー済みのプロンプトを<strong style="color:var(--text);">貼り付けて送信</strong></li>
-            <li>返ってきたデータをコピー</li>
+            <li>返ってきたJSONをコピー</li>
             <li>OR-Simの<strong style="color:var(--text);">「読込」ボタン</strong>でインポート</li>
+            <li>時間の読みにくさ（σ）だけ必要に応じて調整</li>
           </ol>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button id="tip-close" class="btn btn-ghost">閉じる</button>
@@ -2756,7 +2789,7 @@ long_case: 心臓・肝移植など長時間手術はtrue
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const swCode = `
-    const CACHE = 'orsim-v4';
+    const CACHE = 'orsim-v5';
     self.addEventListener('install', e => {
       e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/orsim/', '/orsim/index.html'])));
       self.skipWaiting();
